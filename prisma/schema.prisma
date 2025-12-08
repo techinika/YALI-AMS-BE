@@ -1,0 +1,208 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Gender {
+  id        Int      @id @unique @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  User      User[]
+}
+
+model Cohort {
+  id          Int      @id @unique @default(autoincrement())
+  name        String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  User        User[]
+}
+
+model Country {
+  id           String         @id @unique @default(uuid())
+  name         String         @unique
+  cId          Int?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  Organization Organization[]
+  User         User[]
+}
+
+model State {
+  id           String         @id @unique @default(uuid())
+  name         String
+  countryCode  String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  User         User[]
+  Organization Organization[]
+}
+
+model District {
+  id           String         @id @unique @default(uuid())
+  name         String         @unique
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  Sector       Sector[]
+  Organization Organization[]
+  User         User[]
+}
+
+model Sector {
+  id           String         @id @unique @default(uuid())
+  name         String
+  districtName String
+  district     District       @relation(fields: [districtName], references: [name])
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  Organization Organization[]
+  User         User[]
+}
+
+model Organization {
+  id              Int            @id @unique @default(autoincrement())
+  name            String?
+  workingSectorId String?
+  workingSector   WorkingSector? @relation(fields: [workingSectorId], references: [id])
+  countryId       String?
+  country         Country?       @relation(fields: [countryId], references: [id])
+  stateId         String?
+  state           State?         @relation(fields: [stateId], references: [id])
+  districtId      String?
+  district        District?      @relation(fields: [districtId], references: [name])
+  sectorId        String?
+  sector          Sector?        @relation(fields: [sectorId], references: [id])
+  website         String?
+  socials         String?
+  foundedByUsers  User[]         @relation("FoundedOrganization")
+  employedByUsers User[]         @relation("EmployedOrganization")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model User {
+  id                     String              @id @unique @default(uuid())
+  firstName              String
+  middleName             String
+  lastName               String
+  email                  String              @unique
+  phoneNumber            String
+  bio                    String?
+  linkedin               String?
+  instagram              String?
+  facebook               String?
+  twitter                String?
+  isRwandan              Boolean?
+  residentCountryId      String?
+  residentCountry        Country?            @relation(fields: [residentCountryId], references: [id])
+  stateId                String?
+  state                  State?              @relation(fields: [stateId], references: [id])
+  residentDistrictId     String?
+  residentDistrict       District?           @relation(fields: [residentDistrictId], references: [id])
+  residentSectorId       String?
+  residentSector         Sector?             @relation(fields: [residentSectorId], references: [id])
+  whatsappNumber         String
+  genderName             String?
+  gender                 Gender?             @relation(references: [name], fields: [genderName])
+  roleId                 String?             @default("12")
+  role                   Role?               @relation(references: [id], fields: [roleId])
+  nearestLandmark        String?
+  cohortId               Int?
+  cohort                 Cohort?             @relation(references: [id], fields: [cohortId])
+  trackId                String?
+  track                  Track?              @relation(fields: [trackId], references: [id])
+  organizationFoundedId  Int?
+  organizationFounded    Organization?       @relation("FoundedOrganization", references: [id], fields: [organizationFoundedId])
+  positionInFounded      String?
+  organizationEmployedId Int?
+  organizationEmployed   Organization?       @relation("EmployedOrganization", references: [id], fields: [organizationEmployedId])
+  positionInEmployed     String?
+  password               String              @default("pass")
+  refreshToken           String?             @db.VarChar(1024)
+  token                  String?             @db.VarChar(1024)
+  socials                String?
+  profileImageId         String?
+  profileImage           Image?              @relation("profilePicture", references: [id], fields: [profileImageId])
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  sentMessages           Message[]           @relation("sender")
+  Notifications          Notifications[]
+  receivedMessages       Message[]           @relation("receiver")
+  imageCreator           Image[]             @relation("creator")
+  NotificationSetup      NotificationSetup[]
+}
+
+model Message {
+  id         String   @id @unique @default(uuid())
+  message    String   @db.VarChar(1000)
+  sender     User?    @relation("sender", references: [id], fields: [senderId])
+  senderId   String?
+  receiver   User?    @relation("receiver", references: [id], fields: [receiverId])
+  receiverId String?
+  public     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Notifications {
+  id         String   @id @unique @default(uuid())
+  message    String   @db.VarChar(1000)
+  title      String
+  receiver   User?    @relation(references: [id], fields: [receiverId])
+  receiverId String?
+  opened     Boolean
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model NotificationSetup {
+  id        String   @id @unique @default(uuid())
+  message   String   @db.VarChar(1000)
+  link      String
+  usage     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+  User      User?    @relation(fields: [updatedBy], references: [id])
+}
+
+model Role {
+  id        String   @id @unique @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  User      User[]
+}
+
+model WorkingSector {
+  id           String         @id @unique @default(uuid())
+  name         String         @unique
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  Organization Organization[]
+}
+
+model Track {
+  id        String   @id @unique @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  User      User[]
+}
+
+model Image {
+  id         String   @id @unique @default(uuid())
+  link       String
+  name       String
+  creatorId  String?
+  creator    User?    @relation("creator", references: [id], fields: [creatorId])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  userImages User[]   @relation("profilePicture")
+}
