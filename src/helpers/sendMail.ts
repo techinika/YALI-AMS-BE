@@ -1,13 +1,10 @@
 import nodemailer from "nodemailer";
-import handlebars from "handlebars";
-import fs from "fs";
-import path from "path";
 import { Email } from "../Types/email";
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: Number(process.env.EMAIL_PORT),
-  service: "gmail",
+  // service: "smtp",
   secure: true,
   auth: {
     user: process.env.EMAIL_USERNAME,
@@ -24,7 +21,6 @@ const transporter = nodemailer.createTransport({
 // };
 
 async function sendEmail(replacements: Email) {
-
   try {
     const info = await transporter.sendMail({
       from: `"Alumni Management System" <${process.env.EMAIL_USERNAME}>`,
