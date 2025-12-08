@@ -8,7 +8,6 @@ const prisma = new PrismaClient();
 export const importUsers = async (req: Request, res: Response) => {
   try {
     const { data }: any = req.body;
-    console.log(data);
     const errors = [];
     const processedUsers = [];
 
@@ -40,8 +39,9 @@ export const importUsers = async (req: Request, res: Response) => {
 
         const organizationEmployed = {
           name:
-            row["Organization Name (If employed by another organization)"] ||
-            "",
+            row[
+              "Organization that employ you (If you are currently employed)"
+            ] || "",
           website:
             row["Website of an Organization that Employs you (If available)"] ||
             "",
@@ -50,10 +50,7 @@ export const importUsers = async (req: Request, res: Response) => {
           createdAt: new Date(),
         };
         const organizationFounded = {
-          name:
-            row[
-              "The name of your Initiative (organization you Founded or co-founded)  if Available"
-            ] || "",
+          name: row["Organization/Initiative you started (If available)"] || "",
           website:
             row["Website or any online presence of your initiative"] || "",
           country: row["Country of the initiative (District/Sector)"] || "",
@@ -65,39 +62,45 @@ export const importUsers = async (req: Request, res: Response) => {
         };
 
         const user = {
-          firstName: row["First name"] || "",
+          firstName: row["First Name"] ?? "",
           middleName: row["Middle Name"] || "",
-          lastName: row["Second name"] || "",
+          lastName: row["Last Name"] || "",
           email: row["Email Address"] || "",
-          phoneNumber: String(row["Your personal Phone number"]) || "",
-          whatsappNumber: String(row["Your WhatsApp number"]) || "",
-          linkedin: row["LinkedIn Profile Link (https://linkedin.com/in/...)"],
-          instagram: row["Instagram Profile Link (https://instagram.com/...)"],
-          facebook: row["Facebook Profile Link (https://facebook.com/...)"],
-          twitter: row["X (Twitter) Profile Link (https://x.com/...)"],
+          phoneNumber: String(row["Phone Number"] || ""),
+          whatsappNumber: String(row["WhatsApp Number"] || ""),
+          linkedin: row["LinkedIn Profile"] || "",
+          instagram: row["Instagram Profile"] || "",
+          facebook: row["Facebook Profile"] || "",
+          twitter: row["X (Twitter) Account"] || "",
           genderName: row["Gender"] || "",
-          residentCountry: row["Country of Residence"],
-          state: row["State (If not in Rwanda)"],
-          residentDistrict: row["District of Residence (If in Rwanda)"],
-          residentSector: row["Sector of Residence (If in Rwanda)"],
-          nearestLandmark:
-            row[
-              "Nearest Landmark (School, Church, Mosque, Hotel, or any other common known mark)"
-            ] || "",
-          cohort: row["Cohort"],
-          track: row["Track"],
-          organizationFounded: organizationFounded.name,
+          bio: row["Biography"] ?? "",
+          residentCountry: row["Country of Residence"] || "",
+          state: row["State/Province (If not in Rwanda)"] || "",
+          residentDistrict: row["District of Residence"] || "",
+          residentSector: row["Sector of Residence"] || "",
+          nearestLandmark: row["Nearest Landmark"] || "",
+          cohort: row["Cohort"] || "",
+          track: row["Track"] || "",
+          organizationFounded:
+            row["Organization/Initiative you started (If available)"] || "",
           positionInFounded:
+            row["Your Position in Initiative you Started"] || "",
+          organizationEmployed:
             row[
-              "Position with that Organizaton  (Eg: Founder & CEO, Co-Founder &CEO) or other Position"
-            ],
-          organizationEmployed: organizationEmployed?.name,
-          positionInEmployed: row["Position in the organization employing you"],
+              "Organization that employ you (If you are currently employed)"
+            ] || "",
+          positionInEmployed: row["Your position in your employment"] || "",
+          profileImageLink: row["Profile Picture Link"] || "",
+          createdAt: row["Created At"]
+            ? new Date(row["Created At"])
+            : new Date(),
+          updatedAt: row["Last Updated"]
+            ? new Date(row["Last Updated"])
+            : new Date(),
           roleId: "12",
-          createdAt: new Date(),
         };
 
-        const refreshToken = await generateToken(user);
+        const refreshToken = generateToken(user);
 
         const [OFWS, OEWS, EC, FC, UC, cohort, track, sector, state] =
           await Promise.all([
