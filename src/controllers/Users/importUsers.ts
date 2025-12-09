@@ -102,7 +102,7 @@ export const importUsers = async (req: Request, res: Response) => {
 
         const refreshToken = generateToken(user);
 
-        const [OFWS, OEWS, EC, FC, UC, cohort, track, sector, state] =
+        const [OFWS, OEWS, EC, FC, UC, cohort, track, district, sector, state] =
           await Promise.all([
             prisma.workingSector.findFirst({
               where: { name: organizationFounded?.workingSector },
@@ -124,6 +124,9 @@ export const importUsers = async (req: Request, res: Response) => {
             }),
             prisma.track.findFirst({
               where: { name: String(user?.track) },
+            }),
+            prisma.district.findFirst({
+              where: { name: String(user?.residentDistrict) },
             }),
             prisma.sector.findFirst({
               where: {
@@ -192,14 +195,12 @@ export const importUsers = async (req: Request, res: Response) => {
             email: user.email,
             residentCountry: {
               connect: {
-                name: UC ? UC?.name : "Not Specified",
+                id: UC ? UC?.id : "unspecified",
               },
             },
             residentDistrict: {
               connect: {
-                name: user.residentDistrict
-                  ? user?.residentDistrict
-                  : "Not Specified",
+                id: district?.id ? district?.id : "unspecified",
               },
             },
             residentSector: {
