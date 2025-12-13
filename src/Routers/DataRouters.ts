@@ -43,7 +43,7 @@ router.get("/cohorts", getCohorts);
 router.post("/cohort", addCohorts);
 router.delete("/cohort/:id", deleteCohorts);
 router.get("/district/:districtId", getDistrict);
-router.get("/district/sector/:districtName", getSectorsByDistrict);
+router.get("/district/sector/:districtId", getSectorsByDistrict);
 router.get("/sectors", getSectors);
 router.get("/sector/:sectorId", getSector);
 

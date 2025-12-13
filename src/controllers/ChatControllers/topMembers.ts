@@ -44,8 +44,6 @@ export const getTopActiveMembers = async (req: Request, res: Response) => {
       })
     );
 
-    console.log("now results:", results);
-
     res.status(200).send({
       message: "Top Active Members",
       data: results,

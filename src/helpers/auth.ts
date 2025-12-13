@@ -42,6 +42,7 @@ export const passwordCompare = (
 
 export const generateToken = (user: any): string => {
   const payload = {
+    id: user?.id,
     firstName: user.firstName,
     lastName: user.lastName,
     phoneNumber: user.phoneNumber,
@@ -49,10 +50,10 @@ export const generateToken = (user: any): string => {
     role: user?.role,
     profilePicture: user?.profileImage,
   };
-  let token = jwt.sign(payload, secret, {
-    expiresIn: Math.floor(Date.now() / 1000) + 24 * 3600,
+
+  return jwt.sign(payload, secret, {
+    expiresIn: "24h",
   });
-  return token;
 };
 
 export const verifyToken = (token: string) => {

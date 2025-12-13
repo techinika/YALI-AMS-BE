@@ -1,39 +1,52 @@
-/* eslint-disable no-undef */
+import { Request, Response, NextFunction } from "express";
 import { PrismaClient } from "@prisma/client";
-import { Request, Response } from "express";
+import { verifyToken } from "../helpers/auth";
+
 const prisma = new PrismaClient();
-const jwt = require("jsonwebtoken");
 
-exports.protect = async (req: Request, res: Response, next: any) => {
-  let token;
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
-    try {
-      token = req.headers.authorization.split(" ")[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await prisma.user.findUnique(decoded.id);
-      if (user) return next();
-      else
-        return res
-          .status(301)
-          .json({ message: "You are not authorized! Please login" });
-    } catch (error) {
-      console.log(error);
-      return res.status(401).json({ message: "Invalid token" });
+export interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    email: string;
+  };
+}
+
+export const requireAuth = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Authentication required" });
     }
-  }
-  if (!token) {
-    return res.status(401).json({ message: "Not authorized, no token" });
-  }
-};
 
-exports.isAdmin = (req: any, res: Response, next: any) => {
-  if (req.user.roleId !== "11") {
-    return res
-      .status(403)
-      .json({ message: "You are not authorized to access this page!" });
+    const token = authHeader.split(" ")[1];
+
+    console.log(token);
+
+    const decoded = verifyToken(token) as { id: string; email: string };
+
+    console.log(decoded);
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: {
+        id: true,
+        email: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    console.log(error);
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
-  next();
 };

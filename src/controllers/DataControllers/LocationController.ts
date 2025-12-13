@@ -94,6 +94,8 @@ export const getSector = async (req: Request, res: Response) => {
 export const getSectorsByDistrict = async (req: Request, res: Response) => {
   const districtId = req.params.districtId;
 
+  console.log(districtId);
+
   try {
     const district = await prisma.district.findFirst({
       where: { id: districtId },
@@ -108,6 +110,8 @@ export const getSectorsByDistrict = async (req: Request, res: Response) => {
         districtName: district.name,
       },
     });
+
+    console.log(sectors);
 
     return res.status(200).json({
       message: `Sectors in ${district.name}`,

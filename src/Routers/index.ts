@@ -7,16 +7,17 @@ import notificationRouter from "./notificationRouter";
 import statsRouter from "./statsRouter";
 import uploadRouter from "./uploadRouter";
 import orgRouter from "./orgRouter";
+import { requireAuth } from "../middleware/auth";
 
 const route = Router();
 
-route.use("/users", userRouter);
-route.use("/organizations", orgRouter);
-route.use("/data", DataRouter);
+route.use("/users", requireAuth, userRouter);
+route.use("/organizations", requireAuth, orgRouter);
+route.use("/data", requireAuth, DataRouter);
 route.use("/auth", authRouter);
-route.use("/chat", chatRouter);
-route.use("/notification", notificationRouter);
-route.use("/stats", statsRouter);
-route.use("/upload", uploadRouter);
+route.use("/chat", requireAuth, chatRouter);
+route.use("/notification", requireAuth, notificationRouter);
+route.use("/stats", requireAuth, statsRouter);
+route.use("/upload", requireAuth, uploadRouter);
 
 export default route;
