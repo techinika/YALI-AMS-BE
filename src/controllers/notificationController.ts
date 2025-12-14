@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { subtractDays, subtractMonths } from "../helpers/date";
+import { userStatusTypes } from "../Types/users";
 
 const prisma = new PrismaClient();
 
@@ -31,6 +32,9 @@ export async function generateProfileUpdateNotifications() {
             contains: "UPDATE: You need to update your profile",
           },
         },
+      },
+      status: {
+        not: userStatusTypes?.DELETED,
       },
     },
   });

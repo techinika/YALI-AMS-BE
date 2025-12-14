@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
+import { userStatusTypes } from "../../Types/users";
 
 const prisma = new PrismaClient();
 
@@ -7,13 +8,18 @@ export const deleteUser = async (req: Request, res: Response) => {
   const { userId } = req.params;
   try {
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: {
+        id: userId,
+        status: {
+          not: userStatusTypes?.DELETED,
+        },
+      },
     });
     if (user) {
       const deleted = await prisma.user.update({
         where: { id: userId },
         data: {
-          status: "deleted",
+          status: userStatusTypes?.DELETED,
           updatedAt: new Date(),
         },
       });

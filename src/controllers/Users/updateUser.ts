@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 import sendEmail from "../../helpers/sendMail";
 import { notificationTypes } from "../notificationController";
 import { safeConnect } from "../../helpers/safeConnect";
+import { userStatusTypes } from "../../Types/users";
 
 export const updateUser = async (req: Request, res: Response) => {
   const { userId } = req.params;
@@ -12,7 +13,12 @@ export const updateUser = async (req: Request, res: Response) => {
 
   try {
     const existing = await prisma.user.findUnique({
-      where: { id: userId },
+      where: {
+        id: userId,
+        status: {
+          not: userStatusTypes?.DELETED,
+        },
+      },
     });
 
     if (!existing) {

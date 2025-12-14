@@ -9,7 +9,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
     const users = await prisma.user.findMany({
       where: {
         status: {
-          not: "deleted",
+          not: userStatusTypes?.DELETED,
         },
       },
       include: {

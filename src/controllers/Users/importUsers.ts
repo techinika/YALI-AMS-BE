@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { generateToken } from "../../helpers/auth";
 import sendEmail from "../../helpers/sendMail";
+import { userStatusTypes } from "../../Types/users";
 
 const prisma = new PrismaClient();
 
@@ -26,7 +27,12 @@ export const importUsers = async (req: Request, res: Response) => {
         }
 
         const existingUser = await prisma.user.findFirst({
-          where: { email: row["Email Address"] },
+          where: {
+            email: row["Email Address"],
+            status: {
+              not: userStatusTypes?.DELETED,
+            },
+          },
         });
 
         if (existingUser) {

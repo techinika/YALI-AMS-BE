@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
+import { userStatusTypes } from "../../Types/users";
 const prisma = new PrismaClient();
 
 export const getTopActiveMembers = async (req: Request, res: Response) => {
@@ -27,7 +28,12 @@ export const getTopActiveMembers = async (req: Request, res: Response) => {
     const results = await Promise.all(
       grouped.map(async (g) => {
         const user = await prisma.user.findUnique({
-          where: { id: g.senderId! },
+          where: {
+            id: g.senderId!,
+            status: {
+              not: userStatusTypes?.DELETED,
+            },
+          },
           select: {
             id: true,
             firstName: true,

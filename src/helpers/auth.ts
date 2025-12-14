@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { userStatusTypes } from "../Types/users";
 const prisma = new PrismaClient();
 
 const secret: string = process.env.SECRET_KEY
@@ -11,6 +12,9 @@ export const UserExistsWithId = async (userId: string): Promise<any> => {
   let user = await prisma.user.findUnique({
     where: {
       id: userId,
+      status: {
+        not: userStatusTypes?.DELETED,
+      },
     },
   });
 
@@ -21,6 +25,9 @@ export const UserExistsWithEmail = async (userEmail: string): Promise<any> => {
   let user = await prisma.user.findUnique({
     where: {
       email: userEmail,
+      status: {
+        not: userStatusTypes?.DELETED,
+      },
     },
   });
   return user;
