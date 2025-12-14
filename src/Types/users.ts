@@ -64,11 +64,6 @@ export interface Track {
   name: string;
 }
 
-export interface WorkingSector {
-  id: string;
-  name: string;
-}
-
 export interface Payload {
   firstName: string;
   lastName: string;
@@ -76,4 +71,15 @@ export interface Payload {
   email: string;
   role: Role;
   id: string;
+}
+
+export const userStatusTypes = {
+  DELETED: "deleted",
+  INACTIVE: "inactive",
+  ACTIVE: "active",
+};
+
+export interface Gender {
+  id: string;
+  name: string;
 }

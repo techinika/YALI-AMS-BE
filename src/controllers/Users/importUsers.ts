@@ -220,13 +220,6 @@ export const importUsers = async (req: Request, res: Response) => {
             track: {
               connect: { id: track?.id ? track?.id : "unspecified" },
             },
-            organizationFounded: {
-              connect: { id: OF.id },
-            },
-            positionInFounded: user.positionInFounded,
-            organizationEmployed: {
-              connect: { id: OE.id },
-            },
             state: {
               connect: {
                 id: state?.id ? state?.id : "unspecified",
@@ -237,7 +230,7 @@ export const importUsers = async (req: Request, res: Response) => {
                 id: user?.roleId ? user?.roleId : "12",
               },
             },
-            positionInEmployed: user.positionInEmployed,
+            status: "inactive",
             refreshToken: refreshToken,
             facebook: user?.facebook,
             instagram: user?.instagram,

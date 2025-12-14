@@ -10,8 +10,12 @@ export const deleteUser = async (req: Request, res: Response) => {
       where: { id: userId },
     });
     if (user) {
-      const deleted = await prisma.user.delete({
+      const deleted = await prisma.user.update({
         where: { id: userId },
+        data: {
+          status: "deleted",
+          updatedAt: new Date(),
+        },
       });
       if (deleted) {
         return res.status(201).json({ message: "User deleted successfully" });

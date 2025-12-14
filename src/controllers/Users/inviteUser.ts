@@ -40,6 +40,7 @@ export const inviteUser = async (req: Request, res: Response) => {
         linkedin: "",
         twitter: "",
         password: "",
+        status: "inactive",
         refreshToken: inviteToken,
         createdAt: new Date(),
       },

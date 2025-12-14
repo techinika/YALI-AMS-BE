@@ -1,11 +1,17 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
+import { userStatusTypes } from "../../Types/users";
 
 const prisma = new PrismaClient();
 
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
     const users = await prisma.user.findMany({
+      where: {
+        status: {
+          not: "deleted",
+        },
+      },
       include: {
         role: true,
         gender: true,
@@ -33,7 +39,12 @@ export const getUserById = async (req: Request, res: Response) => {
   const { userId } = req.params;
   try {
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: {
+        id: userId,
+        status: {
+          not: userStatusTypes?.DELETED,
+        },
+      },
       include: {
         gender: true,
         residentDistrict: true,
