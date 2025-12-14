@@ -86,10 +86,6 @@ export const updateUserOrganization = async (req: Request, res: Response) => {
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: updateData,
-      include: {
-        organizationFounded: true,
-        organizationEmployed: true,
-      },
     });
 
     return res.status(200).json({
