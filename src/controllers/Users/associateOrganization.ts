@@ -30,7 +30,7 @@ export const removeUserOrganization = async (req: Request, res: Response) => {
   const { organizationId, userId, relation, id } = req.body;
 
   try {
-    const uo = await prisma.organization_WorkingSector.delete({
+    const uo = await prisma.user_Organization.delete({
       where: {
         id,
         organizationId,

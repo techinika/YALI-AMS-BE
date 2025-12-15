@@ -26,11 +26,7 @@ export const requireAuth = async (
 
     const token = authHeader.split(" ")[1];
 
-    console.log(token);
-
     const decoded = verifyToken(token) as { id: string; email: string };
-
-    console.log(decoded);
 
     const user = await prisma.user.findUnique({
       where: {

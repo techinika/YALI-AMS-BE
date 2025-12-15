@@ -59,7 +59,7 @@ export const getOrganizationById = async (req: Request, res: Response) => {
 };
 
 export const getOrganizationsForUser = async (req: Request, res: Response) => {
-  const { userId } = req.body;
+  const userId = req.params.id;
 
   if (!userId) {
     return res.status(400).json({ error: "userId is required" });
@@ -102,6 +102,10 @@ export const getOrganizationsForUser = async (req: Request, res: Response) => {
 
       return {
         ...org,
+        relation: uo.relation,
+        position: uo.position,
+        user: uo.userId,
+        connectId: uo.id,
         workingSectors,
       };
     });
