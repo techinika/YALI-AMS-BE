@@ -1,30 +1,18 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
+import { userStatusTypes } from "../../Types/users";
 
 const prisma = new PrismaClient();
 
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
     const users = await prisma.user.findMany({
+      where: {
+        status: {
+          not: userStatusTypes?.DELETED,
+        },
+      },
       include: {
-        organizationEmployed: {
-          include: {
-            district: true,
-            sector: true,
-            country: true,
-            workingSector: true,
-            state: true,
-          },
-        },
-        organizationFounded: {
-          include: {
-            district: true,
-            sector: true,
-            country: true,
-            workingSector: true,
-            state: true,
-          },
-        },
         role: true,
         gender: true,
         residentDistrict: true,
@@ -51,26 +39,13 @@ export const getUserById = async (req: Request, res: Response) => {
   const { userId } = req.params;
   try {
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: {
+        id: userId,
+        status: {
+          not: userStatusTypes?.DELETED,
+        },
+      },
       include: {
-        organizationEmployed: {
-          include: {
-            district: true,
-            sector: true,
-            workingSector: true,
-            country: true,
-            state: true,
-          },
-        },
-        organizationFounded: {
-          include: {
-            district: true,
-            sector: true,
-            workingSector: true,
-            country: true,
-            state: true,
-          },
-        },
         gender: true,
         residentDistrict: true,
         residentSector: true,

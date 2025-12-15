@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import sendEmail from "../../helpers/sendMail";
 import { generateToken } from "../../helpers/auth";
+import { userStatusTypes } from "../../Types/users";
 
 const prisma = new PrismaClient();
 
@@ -17,7 +18,14 @@ export const inviteUser = async (req: Request, res: Response) => {
   }
 
   try {
-    const existing = await prisma.user.findFirst({ where: { email } });
+    const existing = await prisma.user.findFirst({
+      where: {
+        email,
+        status: {
+          not: userStatusTypes?.DELETED,
+        },
+      },
+    });
     if (existing) {
       return res
         .status(409)
@@ -40,6 +48,7 @@ export const inviteUser = async (req: Request, res: Response) => {
         linkedin: "",
         twitter: "",
         password: "",
+        status: "inactive",
         refreshToken: inviteToken,
         createdAt: new Date(),
       },

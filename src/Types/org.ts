@@ -1,10 +1,3 @@
-import { WorkingSector } from "./users";
-
-export interface Gender {
-  id: string;
-  name: string;
-}
-
 export interface ResidentDistrict {
   id: string;
   name: string;
@@ -26,10 +19,20 @@ export interface ResidentSector {
   name: string;
 }
 
+export interface WorkingSector {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Organization {
   id: string;
   name: string;
-  workingSectorId: string;
+  country: Country;
+  state: State;
+  district: ResidentDistrict;
+  sector: ResidentSector;
   districtId: string;
   countryId: number;
   sectorId: string;

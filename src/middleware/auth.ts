@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { PrismaClient } from "@prisma/client";
 import { verifyToken } from "../helpers/auth";
+import { userStatusTypes } from "../Types/users";
 
 const prisma = new PrismaClient();
 
@@ -25,14 +26,15 @@ export const requireAuth = async (
 
     const token = authHeader.split(" ")[1];
 
-    console.log(token);
-
     const decoded = verifyToken(token) as { id: string; email: string };
 
-    console.log(decoded);
-
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
+      where: {
+        id: decoded.id,
+        status: {
+          not: userStatusTypes?.DELETED,
+        },
+      },
       select: {
         id: true,
         email: true,

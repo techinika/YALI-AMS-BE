@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { generateToken, hashPassword, verifyToken } from "../helpers/auth";
 import sendEmail from "../helpers/sendMail";
+import { userStatusTypes } from "../Types/users";
 
 const prisma = new PrismaClient();
 
@@ -19,20 +20,13 @@ const AuthController: AuthController = {
     const { email, password } = req.body;
     try {
       const user = await prisma.user.findUnique({
-        where: { email },
+        where: {
+          email,
+          status: {
+            not: userStatusTypes?.DELETED,
+          },
+        },
         include: {
-          organizationEmployed: {
-            include: {
-              district: true,
-              sector: true,
-            },
-          },
-          organizationFounded: {
-            include: {
-              district: true,
-              sector: true,
-            },
-          },
           gender: true,
           residentCountry: true,
           residentDistrict: true,
@@ -54,7 +48,12 @@ const AuthController: AuthController = {
       const token = await generateToken(user);
 
       const updatedUser = await prisma.user.update({
-        where: { id: user.id },
+        where: {
+          id: user.id,
+          status: {
+            not: userStatusTypes?.DELETED,
+          },
+        },
         data: { token },
       });
 
@@ -75,7 +74,12 @@ const AuthController: AuthController = {
     const { userId, pastPassword, password } = req.body;
     try {
       const user = await prisma.user.findUnique({
-        where: { id: userId },
+        where: {
+          id: userId,
+          status: {
+            not: userStatusTypes?.DELETED,
+          },
+        },
       });
       if (!user) {
         return res.status(401).json({ error: "User do not exist" });
@@ -90,7 +94,12 @@ const AuthController: AuthController = {
       const newPassword = await hashPassword(password);
 
       const updatedUser = await prisma.user.update({
-        where: { id: user.id },
+        where: {
+          id: user.id,
+          status: {
+            not: userStatusTypes?.DELETED,
+          },
+        },
         data: { password: newPassword, token: null, refreshToken: null },
       });
 
@@ -113,7 +122,10 @@ const AuthController: AuthController = {
     const { userId, token } = req.body;
     try {
       const user = await prisma.user.findUnique({
-        where: { id: userId, token },
+        where: {
+          id: userId,
+          token,
+        },
       });
       if (!user) {
         return res.status(401).json({ error: "User do not exist!" });
@@ -140,7 +152,12 @@ const AuthController: AuthController = {
     const { email } = req.body;
     try {
       const user = await prisma.user.findUnique({
-        where: { email },
+        where: {
+          email,
+          status: {
+            not: userStatusTypes?.DELETED,
+          },
+        },
         include: {
           role: true,
           track: true,
@@ -150,7 +167,12 @@ const AuthController: AuthController = {
       if (user) {
         const refreshToken = await generateToken(user);
         const updatedUser = await prisma.user.update({
-          where: { id: user.id },
+          where: {
+            id: user.id,
+            status: {
+              not: userStatusTypes?.DELETED,
+            },
+          },
           data: { refreshToken },
         });
 
@@ -201,15 +223,29 @@ const AuthController: AuthController = {
     try {
       const dataFromToken: any = await verifyToken(token);
       const user = await prisma.user.findUnique({
-        where: { email: dataFromToken?.email },
+        where: {
+          email: dataFromToken?.email,
+          status: {
+            not: userStatusTypes?.DELETED,
+          },
+        },
       });
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
       const hashedPassword = await hashPassword(newPassword);
       await prisma.user.update({
-        where: { id: user.id },
-        data: { password: hashedPassword, refreshToken: null },
+        where: {
+          id: user.id,
+          status: {
+            not: userStatusTypes?.DELETED,
+          },
+        },
+        data: {
+          password: hashedPassword,
+          refreshToken: null,
+          status: "active",
+        },
       });
 
       const email = await sendEmail({

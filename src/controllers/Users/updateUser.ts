@@ -4,63 +4,26 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 import sendEmail from "../../helpers/sendMail";
 import { notificationTypes } from "../notificationController";
-import { Organization } from "../../Types/org";
 import { safeConnect } from "../../helpers/safeConnect";
-
-const updateOrCreateOrganization = async (
-  data: Organization,
-  existingId: number | null
-) => {
-  if (!data) return null;
-
-  const existing = existingId
-    ? await prisma.organization.findUnique({ where: { id: existingId } })
-    : null;
-
-  const payload: any = {
-    name: data.name ?? existing?.name ?? undefined,
-    website: data.website ?? existing?.website ?? undefined,
-  };
-
-  if (data.workingSectorId)
-    payload.workingSector = safeConnect(data.workingSectorId);
-  if (data.countryId) payload.country = safeConnect(data.countryId);
-  if (data.stateId) payload.state = safeConnect(data.stateId);
-  if (data.districtId) payload.district = safeConnect(data.districtId);
-  if (data.sectorId) payload.sector = safeConnect(data.sectorId);
-
-  if (existing) {
-    return prisma.organization.update({
-      where: { id: existingId! },
-      data: payload,
-    });
-  }
-
-  return prisma.organization.create({ data: payload });
-};
+import { userStatusTypes } from "../../Types/users";
 
 export const updateUser = async (req: Request, res: Response) => {
   const { userId } = req.params;
-  const { user, organizationFounded, organizationEmployed } = req.body;
+  const { user } = req.body;
 
   try {
     const existing = await prisma.user.findUnique({
-      where: { id: userId },
+      where: {
+        id: userId,
+        status: {
+          not: userStatusTypes?.DELETED,
+        },
+      },
     });
 
     if (!existing) {
       return res.status(404).json({ message: "User does not exist!" });
     }
-
-    const organizationFoundedUpdate = await updateOrCreateOrganization(
-      organizationFounded,
-      organizationFounded?.id ?? null
-    );
-
-    const organizationEmployedUpdate = await updateOrCreateOrganization(
-      organizationEmployed,
-      organizationEmployed?.id ?? null
-    );
 
     const userUpdateData: any = {
       firstName: user?.firstName ?? existing.firstName,
@@ -76,10 +39,6 @@ export const updateUser = async (req: Request, res: Response) => {
       instagram: user?.instagram ?? existing.instagram,
       linkedin: user?.linkedin ?? existing.linkedin,
       twitter: user?.twitter ?? existing.twitter,
-
-      positionInFounded: user?.positionInFounded ?? existing.positionInFounded,
-      positionInEmployed:
-        user?.positionInEmployed ?? existing.positionInEmployed,
     };
 
     if (user?.residentDistrictId)
@@ -101,18 +60,6 @@ export const updateUser = async (req: Request, res: Response) => {
 
     if (user?.profileImageId)
       userUpdateData.profileImage = safeConnect(user.profileImageId);
-
-    if (organizationFoundedUpdate) {
-      userUpdateData.organizationFounded = safeConnect(
-        organizationFoundedUpdate.id
-      );
-    }
-
-    if (organizationEmployedUpdate) {
-      userUpdateData.organizationEmployed = safeConnect(
-        organizationEmployedUpdate.id
-      );
-    }
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
