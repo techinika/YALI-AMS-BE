@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { PrismaClient } from "@prisma/client";
 import { verifyToken } from "../helpers/auth";
 import { userStatusTypes } from "../Types/users";
-
-const prisma = new PrismaClient();
+import prisma from "../helpers/prismaClient";
 
 export interface AuthenticatedRequest extends Request {
   user?: {

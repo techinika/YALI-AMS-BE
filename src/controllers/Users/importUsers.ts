@@ -1,10 +1,8 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import { generateToken } from "../../helpers/auth";
 import sendEmail from "../../helpers/sendMail";
 import { userStatusTypes } from "../../Types/users";
-
-const prisma = new PrismaClient();
+import prisma from "../../helpers/prismaClient";
 
 export const importUsers = async (req: Request, res: Response) => {
   try {

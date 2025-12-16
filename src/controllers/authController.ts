@@ -1,11 +1,9 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { generateToken, hashPassword, verifyToken } from "../helpers/auth";
 import sendEmail from "../helpers/sendMail";
 import { userStatusTypes } from "../Types/users";
-
-const prisma = new PrismaClient();
+import prisma from "../helpers/prismaClient";
 
 interface AuthController {
   login(req: Request, res: Response): Promise<Response>;

@@ -1,11 +1,9 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
 import sendEmail from "../../helpers/sendMail";
 import { notificationTypes } from "../notificationController";
 import { safeConnect } from "../../helpers/safeConnect";
 import { userStatusTypes } from "../../Types/users";
+import prisma from "../../helpers/prismaClient";
 
 export const updateUser = async (req: Request, res: Response) => {
   const { userId } = req.params;

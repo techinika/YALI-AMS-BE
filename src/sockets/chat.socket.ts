@@ -1,7 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "../helpers/prismaClient";
 
 export const chatSocket = (io: Server, socket: Socket) => {
   socket.on("join-room", ({ room }) => {

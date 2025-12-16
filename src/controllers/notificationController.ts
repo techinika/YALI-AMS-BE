@@ -1,9 +1,7 @@
-import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { subtractDays, subtractMonths } from "../helpers/date";
 import { userStatusTypes } from "../Types/users";
-
-const prisma = new PrismaClient();
+import prisma from "../helpers/prismaClient";
 
 export const notificationTypes = {
   SIGNUP: "signup",

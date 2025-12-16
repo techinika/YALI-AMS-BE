@@ -1,6 +1,5 @@
-import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-const prisma = new PrismaClient();
+import prisma from "../../helpers/prismaClient";
 
 export const getCountries = async (req: Request, res: Response) => {
   try {
@@ -94,8 +93,6 @@ export const getSector = async (req: Request, res: Response) => {
 export const getSectorsByDistrict = async (req: Request, res: Response) => {
   const districtId = req.params.districtId;
 
-  console.log(districtId);
-
   try {
     const district = await prisma.district.findFirst({
       where: { id: districtId },
@@ -110,8 +107,6 @@ export const getSectorsByDistrict = async (req: Request, res: Response) => {
         districtName: district.name,
       },
     });
-
-    console.log(sectors);
 
     return res.status(200).json({
       message: `Sectors in ${district.name}`,

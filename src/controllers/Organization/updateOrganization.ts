@@ -1,7 +1,5 @@
-import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-
-const prisma = new PrismaClient();
+import prisma from "../../helpers/prismaClient";
 
 export async function updateOrganization(req: Request, res: Response) {
   try {
