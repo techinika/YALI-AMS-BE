@@ -1,11 +1,9 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import sendEmail from "../../helpers/sendMail";
 import { generateToken } from "../../helpers/auth";
 import { notificationTypes } from "../notificationController";
 import { userStatusTypes } from "../../Types/users";
-
-const prisma = new PrismaClient();
+import prisma from "../../helpers/prismaClient";
 
 const CreateUserProfile = async (req: Request, res: Response) => {
   const { user } = req.body;

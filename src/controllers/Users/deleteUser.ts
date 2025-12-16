@@ -1,8 +1,6 @@
-import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import { userStatusTypes } from "../../Types/users";
-
-const prisma = new PrismaClient();
+import prisma from "../../helpers/prismaClient";
 
 export const deleteUser = async (req: Request, res: Response) => {
   const { userId } = req.params;

@@ -1,8 +1,7 @@
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { userStatusTypes } from "../Types/users";
-const prisma = new PrismaClient();
+import prisma from "./prismaClient";
 
 const secret: string = process.env.SECRET_KEY
   ? process.env.SECRET_KEY

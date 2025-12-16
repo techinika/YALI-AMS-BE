@@ -1,6 +1,5 @@
-import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-const prisma = new PrismaClient();
+import prisma from "../../helpers/prismaClient";
 
 export const getWorkingSector = async (req: Request, res: Response) => {
   try {

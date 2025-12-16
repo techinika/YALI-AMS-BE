@@ -1,5 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+import prisma from "../../helpers/prismaClient";
 
 export const getMessages = async (req: any, res: any) => {
   try {
@@ -59,6 +58,7 @@ export const getPrivateChats = async (req: any, res: any) => {
         receiver: true,
       },
     });
+
     res
       .status(200)
       .send({ message: "Messages", data: messages, count: messages.length });

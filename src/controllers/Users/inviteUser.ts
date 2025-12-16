@@ -1,10 +1,8 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import sendEmail from "../../helpers/sendMail";
 import { generateToken } from "../../helpers/auth";
 import { userStatusTypes } from "../../Types/users";
-
-const prisma = new PrismaClient();
+import prisma from "../../helpers/prismaClient";
 
 export const inviteUser = async (req: Request, res: Response) => {
   const { email, firstName } = req.body;
