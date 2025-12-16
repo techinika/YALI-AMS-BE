@@ -1,16 +1,25 @@
 import express from "express";
 import route from "./Routers";
+import http from "http";
 import bodyParser from "body-parser";
 const fileUpload = require("express-fileupload");
 import cors from "cors";
 import cron from "node-cron";
 import { generateProfileUpdateNotifications } from "./controllers/notificationController";
 import path from "path";
+import { initSockets } from "./sockets";
 
 const app = express();
 const PORT = process.env.PORT || 7000;
+const HTTP_PORT = process.env.HTTP_PORT || 4500;
 
-app.use(cors());
+const corsOptions = {
+  origin: "*",
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
 
 app.use(
   fileUpload({
@@ -25,20 +34,20 @@ app.use(
 
 app.use(express.static(path.join(__dirname, "../public")));
 
-const corsOptions = {
-  origin: "*",
-  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-  optionsSuccessStatus: 200,
-};
-
-app.use(cors(corsOptions));
-
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 app.use("/api", route);
 
 app.listen(PORT, () => console.log("Server is running on port " + PORT));
+
+const server = http.createServer(app);
+
+initSockets(server);
+
+server.listen(HTTP_PORT, () => {
+  console.log(`HTTP Server running on port ${HTTP_PORT}`);
+});
 
 cron.schedule("0 * * * *", async () => {
   console.log("Cron Ready!");

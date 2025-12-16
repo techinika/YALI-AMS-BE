@@ -59,6 +59,7 @@ export const getPrivateChats = async (req: any, res: any) => {
         receiver: true,
       },
     });
+
     res
       .status(200)
       .send({ message: "Messages", data: messages, count: messages.length });
