@@ -75,15 +75,15 @@ CREATE TABLE `Sector` (
 CREATE TABLE `Organization` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NULL,
-    `workingSectorId` VARCHAR(191) NULL,
     `countryId` VARCHAR(191) NULL,
     `stateId` VARCHAR(191) NULL,
     `districtId` VARCHAR(191) NULL,
     `sectorId` VARCHAR(191) NULL,
     `website` VARCHAR(191) NULL,
-    `socials` VARCHAR(191) NULL,
+    `addedById` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
+    `workingSectorId` VARCHAR(191) NULL,
 
     UNIQUE INDEX `Organization_id_key`(`id`),
     PRIMARY KEY (`id`)
@@ -103,6 +103,7 @@ CREATE TABLE `User` (
     `facebook` VARCHAR(191) NULL,
     `twitter` VARCHAR(191) NULL,
     `isRwandan` BOOLEAN NULL,
+    `status` VARCHAR(191) NOT NULL DEFAULT 'inactive',
     `residentCountryId` VARCHAR(191) NULL,
     `stateId` VARCHAR(191) NULL,
     `residentDistrictId` VARCHAR(191) NULL,
@@ -113,14 +114,9 @@ CREATE TABLE `User` (
     `nearestLandmark` VARCHAR(191) NULL,
     `cohortId` INTEGER NULL,
     `trackId` VARCHAR(191) NULL,
-    `organizationFoundedId` INTEGER NULL,
-    `positionInFounded` VARCHAR(191) NULL,
-    `organizationEmployedId` INTEGER NULL,
-    `positionInEmployed` VARCHAR(191) NULL,
     `password` VARCHAR(191) NOT NULL DEFAULT 'pass',
     `refreshToken` VARCHAR(1024) NULL,
     `token` VARCHAR(1024) NULL,
-    `socials` VARCHAR(191) NULL,
     `profileImageId` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
@@ -221,11 +217,49 @@ CREATE TABLE `Image` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- AddForeignKey
-ALTER TABLE `Sector` ADD CONSTRAINT `Sector_districtName_fkey` FOREIGN KEY (`districtName`) REFERENCES `District`(`name`) ON DELETE RESTRICT ON UPDATE CASCADE;
+-- CreateTable
+CREATE TABLE `Organization_WorkingSector` (
+    `id` VARCHAR(191) NOT NULL,
+    `organizationId` INTEGER NULL,
+    `workingSectorId` VARCHAR(191) NULL,
+    `userId` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `Organization_WorkingSector_id_key`(`id`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `User_Organization` (
+    `id` VARCHAR(191) NOT NULL,
+    `organizationId` INTEGER NULL,
+    `userId` VARCHAR(191) NOT NULL,
+    `relation` VARCHAR(191) NOT NULL DEFAULT 'founded',
+    `position` VARCHAR(191) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `User_Organization_id_key`(`id`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `ActivityLog` (
+    `id` VARCHAR(191) NOT NULL,
+    `model` VARCHAR(191) NOT NULL,
+    `action` VARCHAR(191) NOT NULL,
+    `recordId` VARCHAR(191) NULL,
+    `userId` VARCHAR(191) NULL,
+    `timestamp` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `details` JSON NULL,
+
+    UNIQUE INDEX `ActivityLog_id_key`(`id`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- AddForeignKey
-ALTER TABLE `Organization` ADD CONSTRAINT `Organization_workingSectorId_fkey` FOREIGN KEY (`workingSectorId`) REFERENCES `WorkingSector`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `Sector` ADD CONSTRAINT `Sector_districtName_fkey` FOREIGN KEY (`districtName`) REFERENCES `District`(`name`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Organization` ADD CONSTRAINT `Organization_countryId_fkey` FOREIGN KEY (`countryId`) REFERENCES `Country`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
@@ -238,6 +272,12 @@ ALTER TABLE `Organization` ADD CONSTRAINT `Organization_districtId_fkey` FOREIGN
 
 -- AddForeignKey
 ALTER TABLE `Organization` ADD CONSTRAINT `Organization_sectorId_fkey` FOREIGN KEY (`sectorId`) REFERENCES `Sector`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Organization` ADD CONSTRAINT `Organization_addedById_fkey` FOREIGN KEY (`addedById`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Organization` ADD CONSTRAINT `Organization_workingSectorId_fkey` FOREIGN KEY (`workingSectorId`) REFERENCES `WorkingSector`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `User` ADD CONSTRAINT `User_residentCountryId_fkey` FOREIGN KEY (`residentCountryId`) REFERENCES `Country`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
@@ -264,12 +304,6 @@ ALTER TABLE `User` ADD CONSTRAINT `User_cohortId_fkey` FOREIGN KEY (`cohortId`) 
 ALTER TABLE `User` ADD CONSTRAINT `User_trackId_fkey` FOREIGN KEY (`trackId`) REFERENCES `Track`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `User` ADD CONSTRAINT `User_organizationFoundedId_fkey` FOREIGN KEY (`organizationFoundedId`) REFERENCES `Organization`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `User` ADD CONSTRAINT `User_organizationEmployedId_fkey` FOREIGN KEY (`organizationEmployedId`) REFERENCES `Organization`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE `User` ADD CONSTRAINT `User_profileImageId_fkey` FOREIGN KEY (`profileImageId`) REFERENCES `Image`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -286,3 +320,18 @@ ALTER TABLE `NotificationSetup` ADD CONSTRAINT `NotificationSetup_updatedBy_fkey
 
 -- AddForeignKey
 ALTER TABLE `Image` ADD CONSTRAINT `Image_creatorId_fkey` FOREIGN KEY (`creatorId`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Organization_WorkingSector` ADD CONSTRAINT `Organization_WorkingSector_organizationId_fkey` FOREIGN KEY (`organizationId`) REFERENCES `Organization`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Organization_WorkingSector` ADD CONSTRAINT `Organization_WorkingSector_workingSectorId_fkey` FOREIGN KEY (`workingSectorId`) REFERENCES `WorkingSector`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Organization_WorkingSector` ADD CONSTRAINT `Organization_WorkingSector_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `User_Organization` ADD CONSTRAINT `User_Organization_organizationId_fkey` FOREIGN KEY (`organizationId`) REFERENCES `Organization`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `User_Organization` ADD CONSTRAINT `User_Organization_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
