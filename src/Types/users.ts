@@ -24,10 +24,6 @@ export interface User {
   facebook: string;
   twitter: string;
   state: State;
-  organizationFoundedId: number | null;
-  positionInFounded: string | null;
-  organizationEmployedId: number | null;
-  positionInEmployed: string | null;
   password: string | null;
   createdAt: Date;
   updatedAt: Date;

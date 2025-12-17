@@ -11,16 +11,31 @@ export const createNewOrganization = async (req: Request, res: Response) => {
     });
   }
 
+  const cleanStateId = stateId && stateId !== "" ? stateId : undefined;
+
+  const cleanDistrictId =
+    districtId && districtId !== ""
+      ? await prisma.district
+          .findFirst({
+            where: { id: districtId },
+          })
+          .then((r) => {
+            return r?.name;
+          })
+      : undefined;
+
+  const cleanSectorId = sectorId && sectorId !== "" ? sectorId : undefined;
+
   try {
     const organization = await prisma.organization.create({
       data: {
         name,
-        countryId,
-        stateId,
-        districtId,
-        sectorId,
-        website,
-        addedById,
+        countryId: countryId ?? undefined,
+        stateId: cleanStateId,
+        districtId: cleanDistrictId,
+        sectorId: cleanSectorId,
+        website: website ?? "",
+        addedById: addedById ?? undefined,
       },
     });
 
