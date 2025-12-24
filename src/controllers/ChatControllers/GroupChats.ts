@@ -14,8 +14,13 @@ export const createGroup = async (req: Request, res: Response) => {
     const group = await prisma.group.create({
       data: {
         name,
-        createdById: createdBy,
+        description: req.body.description || "",
         interests,
+        createdBy: {
+          connect: {
+            id: createdBy,
+          },
+        },
       },
       include: { members: true },
     });
@@ -201,12 +206,10 @@ export const removeUserFromGroup = async (req: Request, res: Response) => {
         .json({ message: "Owner cannot be removed from group." });
     }
 
-    const membership = await prisma.groupMember.findUnique({
+    const membership = await prisma.groupMember.findFirst({
       where: {
-        groupId_userId: {
-          groupId,
-          userId,
-        },
+        groupId,
+        userId,
       },
     });
 
@@ -216,12 +219,10 @@ export const removeUserFromGroup = async (req: Request, res: Response) => {
         .json({ message: "User is not a member of this group." });
     }
 
-    await prisma.groupMember.delete({
+    await prisma.groupMember.deleteMany({
       where: {
-        groupId_userId: {
-          groupId,
-          userId,
-        },
+        groupId,
+        userId,
       },
     });
 
@@ -239,7 +240,6 @@ export const removeUserFromGroup = async (req: Request, res: Response) => {
 export const getAllGroups = async (req: Request, res: Response) => {
   try {
     const groups = await prisma.group.findMany({
-      orderBy: { createdAt: "desc" },
       include: {
         _count: {
           select: { members: true },

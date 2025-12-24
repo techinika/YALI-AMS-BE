@@ -161,7 +161,7 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
       await prisma.matchmakingItem.create({
         data: {
           requestId: requestRecord.id,
-          type: "user",
+          matchType: "user",
           matchedUserId: match.userId,
           score: match.score ?? 0,
           reason: match.reason ?? "",
@@ -173,7 +173,7 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
       await prisma.matchmakingItem.create({
         data: {
           requestId: requestRecord.id,
-          type: "group",
+          matchType: "group",
           matchedGroupId: group.groupId,
           score: group.score ?? 0,
           reason: group.reason ?? "",
