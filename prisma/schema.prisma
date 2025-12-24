@@ -134,6 +134,10 @@ model User {
   organizationWorkingSectors Organization_WorkingSector[]
   userOrganizations          User_Organization[]
   organizations              Organization[]
+  matchmakingRequests        MatchmakingRequest[]
+  groupMembers               GroupMember[]
+  groupMessages              GroupMessage[]
+  groups                     Group[]
 }
 
 model Message {
@@ -238,4 +242,69 @@ model ActivityLog {
   userId    String?
   timestamp DateTime @default(now())
   details   Json?
+}
+
+model MatchmakingRequest {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  description String?
+  aiSummary   String?
+  aiNotes     String?
+  aiResponse  String?
+  interests   String
+
+  status String @default("pending")
+
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  matchmakingItems MatchmakingItem[]
+}
+
+model MatchmakingItem {
+  id        String             @id @default(uuid())
+  request   MatchmakingRequest @relation(fields: [requestId], references: [id])
+  requestId String
+
+  matchedUserId  String?
+  matchedGroupId String?
+
+  matchType String // "user" | "group"
+  score     Float?
+  reason    String?
+
+  createdAt DateTime @default(now())
+}
+
+model Group {
+  id            String         @id @default(uuid())
+  name          String
+  description   String
+  interests     String
+  createdById   String
+  createdBy     User           @relation(fields: [createdById], references: [id])
+  members       GroupMember[]
+  groupMessages GroupMessage[]
+}
+
+model GroupMember {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  group     Group    @relation(fields: [groupId], references: [id])
+  groupId   String
+  createdAt DateTime @default(now())
+}
+
+model GroupMessage {
+  id       String @id @default(uuid())
+  senderId String
+  sender   User   @relation(fields: [senderId], references: [id])
+
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id])
+
+  content   String
+  createdAt DateTime @default(now())
 }
