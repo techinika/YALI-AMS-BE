@@ -1,4 +1,3 @@
-import { PrismaClient } from "@prisma/client";
 import { genders } from "./genders";
 import { cohorts } from "./cohorts";
 import { roles } from "./role";
@@ -8,8 +7,7 @@ import { workingSectors } from "./organization";
 import { countries, states } from "./countries";
 import { images } from "./images";
 import { notifications } from "./notification";
-
-const prisma = new PrismaClient();
+import prisma from "../../src/helpers/prismaClient";
 
 const BATCH_SIZE = 100;
 
