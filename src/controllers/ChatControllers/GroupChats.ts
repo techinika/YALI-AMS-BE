@@ -244,21 +244,6 @@ export const getAllGroups = async (req: Request, res: Response) => {
         _count: {
           select: { members: true },
         },
-        messages: {
-          take: 1,
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            content: true,
-            createdAt: true,
-            sender: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
       },
     });
 
@@ -287,20 +272,7 @@ export const getGroupById = async (req: Request, res: Response) => {
             user: {
               select: {
                 id: true,
-                name: true,
-                email: true,
-                avatar: true,
-              },
-            },
-          },
-        },
-        messages: {
-          orderBy: { createdAt: "asc" },
-          include: {
-            sender: {
-              select: {
-                id: true,
-                name: true,
+                firstName: true,
                 email: true,
               },
             },

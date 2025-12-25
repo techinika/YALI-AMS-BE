@@ -4,3 +4,6 @@ dist
 public
 tmp
 uploads
+generated
+.DS_Store
+.vscode

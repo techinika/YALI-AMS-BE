@@ -1,16 +1,9 @@
 import { Request, Response } from "express";
 import prisma from "../../helpers/prismaClient";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { extractJson } from "../../helpers/extractJSON";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY!);
-
-function safeJSONParse(str: string) {
-  try {
-    return JSON.parse(str);
-  } catch {
-    return null;
-  }
-}
 
 export const createMatchmakingRequest = async (req: Request, res: Response) => {
   const { interests, description, userId } = req.body;
@@ -107,7 +100,7 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
     let aiResponseText = "";
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
       const result = await model.generateContent(prompt);
 
@@ -129,7 +122,7 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
       });
     }
 
-    const parsed = safeJSONParse(aiResponseText);
+    const parsed = extractJson(aiResponseText);
 
     if (!parsed || typeof parsed !== "object") {
       await prisma.matchmakingRequest.update({
@@ -157,6 +150,8 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
       },
     });
 
+    let finalMatchedUsers = [];
+
     for (const match of matchedUsers) {
       await prisma.matchmakingItem.create({
         data: {
@@ -167,6 +162,20 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
           reason: match.reason ?? "",
         },
       });
+
+      const member = await prisma.user.findFirst({
+        where: { id: match?.userId },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          bio: true,
+          profileImage: true,
+        },
+      });
+
+      finalMatchedUsers.push(member);
     }
 
     for (const group of matchedGroups) {
@@ -185,8 +194,9 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
       message: "Matchmaking request completed",
       requestId: requestRecord.id,
       matches: {
-        users: matchedUsers,
+        users: finalMatchedUsers,
         groups: matchedGroups,
+        reason: aiSummary,
       },
       aiSummary,
     });
