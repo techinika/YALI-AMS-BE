@@ -151,6 +151,7 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
     });
 
     let finalMatchedUsers = [];
+    let finalMatchedGroups = [];
 
     for (const match of matchedUsers) {
       await prisma.matchmakingItem.create({
@@ -179,7 +180,7 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
     }
 
     for (const group of matchedGroups) {
-      await prisma.matchmakingItem.create({
+      const match = await prisma.matchmakingItem.create({
         data: {
           requestId: requestRecord.id,
           matchType: "group",
@@ -188,6 +189,21 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
           reason: group.reason ?? "",
         },
       });
+
+      if (!match.matchedGroupId) {
+        continue;
+      }
+
+      const grp = await prisma.group.findFirst({
+        where: { id: match.matchedGroupId },
+        include: {
+          members: true,
+        },
+      });
+
+      if (grp) {
+        finalMatchedGroups.push(grp);
+      }
     }
 
     return res.status(201).json({
@@ -195,7 +211,7 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
       requestId: requestRecord.id,
       matches: {
         users: finalMatchedUsers,
-        groups: matchedGroups,
+        groups: finalMatchedGroups,
         reason: aiSummary,
       },
       aiSummary,

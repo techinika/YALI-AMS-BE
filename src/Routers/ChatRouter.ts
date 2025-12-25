@@ -13,6 +13,7 @@ import {
   getGroupById,
   getGroupMembers,
   getGroupMessages,
+  getMyGroups,
   removeUserFromGroup,
   sendGroupMessage,
 } from "../controllers/ChatControllers/GroupChats";
@@ -33,5 +34,6 @@ chatRouter.get("/group/messages/:groupId", getGroupMessages);
 chatRouter.post("/group/messages/:groupId", sendGroupMessage);
 chatRouter.get("/group/all", getAllGroups);
 chatRouter.get("/group/:groupId", getGroupById);
+chatRouter.get("/group/my/:userId", getMyGroups);
 
 export default chatRouter;

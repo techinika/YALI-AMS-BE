@@ -4,6 +4,8 @@ import prisma from "../../helpers/prismaClient";
 export const createGroup = async (req: Request, res: Response) => {
   const { name, createdBy, memberIds, interests } = req.body;
 
+  console.log(req.body);
+
   if (!name || !createdBy) {
     return res.status(400).json({
       message: "Group name and creator ID are required.",
@@ -25,16 +27,18 @@ export const createGroup = async (req: Request, res: Response) => {
       include: { members: true },
     });
 
-    if (memberIds && Array.isArray(memberIds)) {
-      const groupMembersData = memberIds.map((memberId: string) => ({
-        groupId: group.id,
-        userId: memberId,
-      }));
+    console.log("Created group: ", group);
 
-      await prisma.groupMember.createMany({
-        data: [{ groupId: group.id, userId: createdBy }, ...groupMembersData],
-      });
-    }
+    const groupMembersData = memberIds.map((memberId: string) => ({
+      groupId: group.id,
+      userId: memberId,
+    }));
+
+    const mms = await prisma.groupMember.createMany({
+      data: [{ groupId: group.id, userId: createdBy }, ...groupMembersData],
+    });
+
+    console.log(mms);
 
     return res.status(201).json({
       message: "Group created successfully.",
@@ -291,5 +295,50 @@ export const getGroupById = async (req: Request, res: Response) => {
     return res
       .status(500)
       .json({ message: "Internal server error", error: error.message });
+  }
+};
+
+export const getMyGroups = async (req: Request, res: Response) => {
+  try {
+    let userId = req.user?.id || req.params.userId || req.query.userId;
+
+    if (Array.isArray(userId)) {
+      userId = userId[0];
+    }
+
+    if (!userId) {
+      return res.status(400).json({
+        message: "User ID is required.",
+      });
+    }
+
+    const groups = await prisma.groupMember.findMany({
+      where: { userId },
+      include: {
+        group: {
+          include: {
+            members: {
+              include: {
+                user: true,
+              },
+            },
+            createdBy: true,
+          },
+        },
+      },
+    });
+
+    const formatted = groups.filter((gm) => gm.group).map((gm) => gm.group);
+
+    return res.status(200).json({
+      message: "Groups fetched successfully.",
+      data: formatted,
+    });
+  } catch (error: any) {
+    console.error("Get my groups error:", error);
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
