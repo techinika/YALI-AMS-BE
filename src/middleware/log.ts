@@ -1,6 +1,6 @@
 // src/middleware/activityLoggerExtension.ts
 
-import { Prisma } from "../../generated/prisma/client";
+import { Prisma } from "@prisma/client";
 import { getUserId } from "../helpers/prisma-context";
 import prisma from "../helpers/prismaClient";
 
