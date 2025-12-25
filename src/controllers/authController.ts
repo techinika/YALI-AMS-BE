@@ -43,7 +43,7 @@ const AuthController: AuthController = {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      const token = await generateToken(user);
+      const token = generateToken(user);
 
       const updatedUser = await prisma.user.update({
         where: {

@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request } from "express";
 import route from "./Routers";
 import http from "http";
 import bodyParser from "body-parser";
@@ -8,6 +8,16 @@ import cron from "node-cron";
 import { generateProfileUpdateNotifications } from "./controllers/notificationController";
 import path from "path";
 import { initSockets } from "./sockets";
+import { prismaContext } from "./helpers/prisma-context";
+import "dotenv/config";
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: { id: string; email: string };
+    }
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 7000;
@@ -38,6 +48,12 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 app.use("/api", route);
+
+app.use((req: Request, res, next) => {
+  prismaContext.run({ userId: req?.user?.id }, () => {
+    next();
+  });
+});
 
 app.listen(PORT, () => console.log("Server is running on port " + PORT));
 
