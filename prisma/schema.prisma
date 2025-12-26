@@ -249,9 +249,9 @@ model MatchmakingRequest {
   userId String
 
   description String?
-  aiSummary   String? @db.LongText
-  aiNotes     String? @db.LongText
-  aiResponse  String? @db.LongText
+  aiSummary   String?
+  aiNotes     String?
+  aiResponse  String?
   interests   String
 
   status String @default("pending")

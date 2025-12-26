@@ -145,8 +145,8 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
       where: { id: requestRecord.id },
       data: {
         status: "completed",
-        aiNotes: aiSummary,
-        aiResponse: aiResponseText,
+        aiNotes: "Parsed successfully",
+        aiResponse: `Response parsed and matches recorded, matches will be added to the database. We have ${matchedUsers.length} user matches and ${matchedGroups.length} group matches.`,
       },
     });
 

@@ -27,18 +27,31 @@ export const createGroup = async (req: Request, res: Response) => {
       include: { members: true },
     });
 
-    console.log("Created group: ", group);
+    const uniqueIds = new Set([createdBy, ...memberIds]);
 
-    const groupMembersData = memberIds.map((memberId: string) => ({
-      groupId: group.id,
-      userId: memberId,
-    }));
-
-    const mms = await prisma.groupMember.createMany({
-      data: [{ groupId: group.id, userId: createdBy }, ...groupMembersData],
+    const existingMembers = await prisma.groupMember.findMany({
+      where: {
+        groupId: group.id,
+        userId: { in: [...uniqueIds] },
+      },
+      select: { userId: true },
     });
 
-    console.log(mms);
+    const existingIds = new Set(existingMembers.map((m) => m.userId));
+
+    const newMembers = [...uniqueIds]
+      .filter((id) => !existingIds.has(id))
+      .map((id) => ({
+        groupId: group.id,
+        userId: id,
+      }));
+
+    if (newMembers.length > 0) {
+      await prisma.groupMember.createMany({
+        data: newMembers,
+        skipDuplicates: true,
+      });
+    }
 
     return res.status(201).json({
       message: "Group created successfully.",
