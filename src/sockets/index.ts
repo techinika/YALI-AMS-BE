@@ -6,7 +6,6 @@ export const initSockets = (httpServer: any) => {
     cors: {
       origin: "*",
     },
-    path: "/socket.io",
   });
 
   io.on("connection", (socket) => {
