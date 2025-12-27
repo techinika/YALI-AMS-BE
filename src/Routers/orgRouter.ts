@@ -3,6 +3,7 @@ import {
   getOrganizationById,
   getOrganizations,
   getOrganizationsForUser,
+  getOrganizationsForUserById,
 } from "../controllers/Organization/listOrgs";
 import { createNewOrganization } from "../controllers/Organization/createOrganization";
 import {
@@ -16,6 +17,7 @@ const router = Router();
 router.get("/", getOrganizations);
 router.get("/:id", getOrganizationById);
 router.get("/user/:id", getOrganizationsForUser);
+router.get("/user/:id/:orgId", getOrganizationsForUserById);
 router.post("/new", createNewOrganization);
 router.put("/update", updateOrganization);
 router.post("/ws/add", addWStoOrganization);

@@ -115,4 +115,68 @@ export const getOrganizationsForUser = async (req: Request, res: Response) => {
   }
 };
 
+export const getOrganizationsForUserById = async (
+  req: Request,
+  res: Response
+) => {
+  const userId = req.params.id;
+  const orgId = Number(req.params.orgId);
+
+  if (!userId) {
+    return res.status(400).json({ error: "userId is required" });
+  }
+
+  try {
+    const userOrganizations = await prisma.user_Organization.findMany({
+      where: { userId, organizationId: orgId },
+      include: {
+        organization: {
+          include: {
+            country: true,
+            state: true,
+            district: true,
+            sector: true,
+            addedBy: true,
+            organizationWorkingSectors: {
+              where: {
+                userId,
+                organizationId: orgId,
+              },
+              include: {
+                workingSector: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (userOrganizations.length === 0) {
+      return res.json({ data: [] });
+    }
+
+    const organizations = userOrganizations.map((uo) => {
+      const org = uo.organization;
+
+      const workingSectors = org?.organizationWorkingSectors.map(
+        (ows) => ows.workingSector
+      );
+
+      return {
+        ...org,
+        relation: uo.relation,
+        position: uo.position,
+        user: uo.userId,
+        connectId: uo.id,
+        workingSectors,
+      };
+    });
+
+    return res.json({ data: organizations });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 export { getOrganizations };
