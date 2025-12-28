@@ -78,22 +78,22 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
     {
       "userId": "uuid",
       "score": number,            // 0–100 compatibility
-      "reason": "Short explanation"
+      "reason": "Short explanation not exceeding 200 characters"
     }
   ],
   "matchedGroups": [
     {
       "groupId": "uuid",
       "score": number,            // 0–100 relevance
-      "reason": "Short explanation"
+      "reason": "Short explanation not exceeding 200 characters"
     }
   ],
-  "aiSummary": "One-paragraph summary of why these matches fit the user."
+  "aiSummary": "One-paragraph summary of why these matches fit the user not exceeding 255 characters."
 }
 
 ### LIMITS
-- Max 3 matched users.
-- Max 2 matched groups.
+- Max 6 matched users.
+- Max 4 matched groups.
 - Every score must be realistic and based on given data.
 - All IDs MUST come only from the data provided.`;
 
@@ -160,7 +160,7 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
           matchType: "user",
           matchedUserId: match.userId,
           score: match.score ?? 0,
-          reason: match.reason ?? "",
+          reason: match.reason.slice(0, 200) ?? "",
         },
       });
 
@@ -186,7 +186,7 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
           matchType: "group",
           matchedGroupId: group.groupId,
           score: group.score ?? 0,
-          reason: group.reason ?? "",
+          reason: group.reason.slice(0, 200) ?? "",
         },
       });
 
