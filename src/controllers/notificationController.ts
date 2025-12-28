@@ -10,49 +10,58 @@ export const notificationTypes = {
 };
 
 export async function generateProfileUpdateNotifications() {
-  const sixMonthAgo = subtractMonths(new Date(), 6);
-  const oneDayAgo = subtractDays(new Date(), 1);
-  const notification = await prisma.notificationSetup.findFirst({
-    where: { usage: notificationTypes.UPDATE },
-  });
+  try {
+    const sixMonthsAgo = subtractMonths(new Date(), 6);
+    const oneDayAgo = subtractDays(new Date(), 1);
 
-  const users = await prisma.user.findMany({
-    where: {
-      updatedAt: {
-        lt: sixMonthAgo,
-      },
-      Notifications: {
-        none: {
-          createdAt: {
-            gt: oneDayAgo,
-          },
-          title: {
-            contains: "UPDATE: You need to update your profile",
+    const setup = await prisma.notificationSetup.findFirst({
+      where: { usage: "UPDATE" },
+    });
+
+    if (!setup || !setup.message) {
+      console.log("No notification template found for UPDATE.");
+      return;
+    }
+
+    const users = await prisma.user.findMany({
+      where: {
+        updatedAt: { lt: sixMonthsAgo },
+        status: { not: userStatusTypes?.DELETED },
+
+        Notifications: {
+          none: {
+            createdAt: { gt: oneDayAgo },
+            title: "UPDATE: You need to update your profile",
           },
         },
       },
-      status: {
-        not: userStatusTypes?.DELETED,
-      },
-    },
-  });
+      select: { id: true, firstName: true },
+    });
 
-  const notifications = users.map((user) => ({
-    title: "UPDATE: You need to update your profile",
-    message: notification!.message.replace(/\[name\]/g, user.firstName),
-    receiverId: user.id,
-    opened: false,
-    createdAt: new Date(),
-  }));
+    if (users.length === 0) {
+      console.log("No users need profile update notifications.");
+      return;
+    }
 
-  const createNotifications = await prisma.notifications.createMany({
-    data: notifications,
-  });
+    const notificationsData = users.map((user) => ({
+      title: "UPDATE: You need to update your profile",
+      message: setup.message.replace(/\[name\]/g, user.firstName),
+      receiverId: user.id,
+      opened: false,
+      createdAt: new Date(),
+    }));
 
-  console.log(
-    "Profile update notifications have been created.",
-    createNotifications
-  );
+    const result = await prisma.notifications.createMany({
+      data: notificationsData,
+      skipDuplicates: true,
+    });
+
+    console.log("Profile update notifications created:", result.count);
+  } catch (error) {
+    console.error("Error generating profile notifications:", error);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
 export const getUsersNotifications = async (req: Request, res: Response) => {
