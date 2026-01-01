@@ -73,6 +73,7 @@ export const userStatusTypes = {
   DELETED: "deleted",
   INACTIVE: "inactive",
   ACTIVE: "active",
+  INVITED: "invited",
 };
 
 export interface Gender {

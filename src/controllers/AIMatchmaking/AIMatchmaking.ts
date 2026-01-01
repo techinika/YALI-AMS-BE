@@ -160,7 +160,7 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
           matchType: "user",
           matchedUserId: match.userId,
           score: match.score ?? 0,
-          reason: match.reason.slice(0, 200) ?? "",
+          reason: "",
         },
       });
 
@@ -186,7 +186,7 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
           matchType: "group",
           matchedGroupId: group.groupId,
           score: group.score ?? 0,
-          reason: group.reason.slice(0, 200) ?? "",
+          reason: "",
         },
       });
 

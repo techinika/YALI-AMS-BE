@@ -146,50 +146,28 @@ export const importUsers = async (req: Request, res: Response) => {
             }),
           ]);
 
-        const [OF, OE] = await Promise.all([
-          prisma.organization.create({
+        let foundedOrgRecord = null;
+        let employedOrgRecord = null;
+
+        if (organizationFounded.name.trim() !== "") {
+          foundedOrgRecord = await prisma.organization.create({
             data: {
-              name: organizationFounded?.name,
-              workingSector: {
-                connect: {
-                  name: OFWS ? OFWS?.name : "Not Specified",
-                },
-              },
-              district: {
-                connect: {
-                  name: "Not Specified",
-                },
-              },
-              sector: {
-                connect: {
-                  id: "unspecified",
-                },
-              },
-              country: {
-                connect: {
-                  id: FC?.id ? FC?.id : "unspecified",
-                },
-              },
-              website: organizationFounded?.website,
+              name: organizationFounded.name,
+              website: organizationFounded.website,
+              country: FC ? { connect: { id: FC.id } } : undefined,
             },
-          }),
-          prisma.organization.create({
+          });
+        }
+
+        if (organizationEmployed.name.trim() !== "") {
+          employedOrgRecord = await prisma.organization.create({
             data: {
-              name: organizationEmployed?.name,
-              workingSector: {
-                connect: {
-                  name: OEWS ? OEWS?.name : "Not Specified",
-                },
-              },
-              country: {
-                connect: {
-                  id: EC?.id ? EC?.id : "unspecified",
-                },
-              },
-              website: organizationEmployed?.website,
+              name: organizationEmployed.name,
+              website: organizationEmployed.website,
+              country: EC ? { connect: { id: EC.id } } : undefined,
             },
-          }),
-        ]);
+          });
+        }
 
         const US = await prisma.user.create({
           data: {
@@ -234,7 +212,7 @@ export const importUsers = async (req: Request, res: Response) => {
                 id: user?.roleId ? user?.roleId : "12",
               },
             },
-            status: "inactive",
+            status: userStatusTypes?.INACTIVE,
             refreshToken: refreshToken,
             facebook: user?.facebook,
             instagram: user?.instagram,
@@ -246,7 +224,49 @@ export const importUsers = async (req: Request, res: Response) => {
 
         processedUsers.push(US);
 
-        const email = await sendEmail({
+        if (foundedOrgRecord) {
+          await prisma.user_Organization.create({
+            data: {
+              organizationId: foundedOrgRecord.id,
+              userId: US.id,
+              relation: "founded",
+              position: row["Your Position in Initiative you Started"] || null,
+            },
+          });
+
+          if (OFWS) {
+            await prisma.organization_WorkingSector.create({
+              data: {
+                organizationId: foundedOrgRecord.id,
+                workingSectorId: OFWS.id,
+                userId: US.id,
+              },
+            });
+          }
+        }
+
+        if (employedOrgRecord) {
+          await prisma.user_Organization.create({
+            data: {
+              organizationId: employedOrgRecord.id,
+              userId: US.id,
+              relation: "employed",
+              position: row["Your position in your employment"] || null,
+            },
+          });
+
+          if (OEWS) {
+            await prisma.organization_WorkingSector.create({
+              data: {
+                organizationId: employedOrgRecord.id,
+                workingSectorId: OEWS.id,
+                userId: US.id,
+              },
+            });
+          }
+        }
+
+        await sendEmail({
           subject: "Your profile on YALI AMS created successfully!",
           name: US.firstName,
           message: `<div><p style="font-size: 16px; line-height: 1.5; color: #333;">
