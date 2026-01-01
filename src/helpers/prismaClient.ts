@@ -10,6 +10,7 @@ const adapter = new PrismaMariaDb({
   password: process.env.DATABASE_PASSWORD,
   database: process.env.DATABASE_NAME,
   connectionLimit: Number(process.env.CONNECTION_LIMIT) || 5,
+  allowPublicKeyRetrieval: true,
 });
 
 console.log("Connecting to MariaDB at: ", process.env.DATABASE_HOST);
