@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { ChangeUserRole } from "../controllers/DataControllers/RoleController";
 import CreateUserProfile from "../controllers/Users/createUser";
-import { inviteUser } from "../controllers/Users/inviteUser";
+import { inviteUser, reInviteUser } from "../controllers/Users/inviteUser";
 import { updateUser } from "../controllers/Users/updateUser";
 import {
   addUserOrganization,
@@ -16,6 +16,7 @@ const router = Router();
 router.get("/", getAllUsers);
 router.get("/:userId", getUserById);
 router.post("/invite", inviteUser);
+router.put("/invite/renew/:userId", reInviteUser);
 router.post("/profile", CreateUserProfile);
 router.post("/org/add", addUserOrganization);
 router.delete("/org/remove", removeUserOrganization);
