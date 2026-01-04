@@ -293,6 +293,7 @@ model GroupMember {
   userId    String
   group     Group    @relation(fields: [groupId], references: [id])
   groupId   String
+  status    String   @default("admin_approval_pending") // "admin_approval_pending", "member_joining_pending", "admin_rejected", "member_left", "member_rejected", "approved" 
   createdAt DateTime @default(now())
 }
 
