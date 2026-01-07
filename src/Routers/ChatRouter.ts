@@ -17,6 +17,14 @@ import {
   removeUserFromGroup,
   sendGroupMessage,
 } from "../controllers/ChatControllers/GroupChats";
+import {
+  acceptGroupInvitation,
+  approveGroupJoinRequest,
+  declineGroupInvitation,
+  getUsersToInvite,
+  rejectJoinRequest,
+  requestToJoinGroup,
+} from "../controllers/ChatControllers/JoinGroup";
 
 const chatRouter = Router();
 
@@ -30,10 +38,23 @@ chatRouter.post("/group/create", createGroup);
 chatRouter.post("/group/add-member/:groupId", addMemberToGroup);
 chatRouter.delete("/group/remove-member", removeUserFromGroup);
 chatRouter.get("/group/get-members/:groupId", getGroupMembers);
-chatRouter.get("/group/messages/:groupId", getGroupMessages);
-chatRouter.post("/group/messages/:groupId", sendGroupMessage);
+
+chatRouter.get("/group/messages/:groupId/:userId", getGroupMessages);
+chatRouter.post("/group/messages/:groupId/:userId", sendGroupMessage);
+
 chatRouter.get("/group/all", getAllGroups);
 chatRouter.get("/group/:groupId", getGroupById);
 chatRouter.get("/group/my/:userId", getMyGroups);
+chatRouter.get(
+  "/group/to-invite/:currentUserId/:activeGroupId",
+  getUsersToInvite
+);
+
+chatRouter.post("/group/join-request/", requestToJoinGroup);
+chatRouter.post("/group/approve-request/admin", approveGroupJoinRequest);
+chatRouter.post("/group/approve-request/member", acceptGroupInvitation);
+
+chatRouter.post("/group/reject-request/:groupId", rejectJoinRequest);
+chatRouter.post("/group/decline-request/:groupId", declineGroupInvitation);
 
 export default chatRouter;

@@ -1,6 +1,6 @@
-import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 import prisma from "../../helpers/prismaClient";
+import cloudinary from "../../helpers/cloudinary";
 
 const uploadToCloudinary = (filePath: string) => {
   return cloudinary.uploader.upload(filePath, {
@@ -15,12 +15,6 @@ export const uploadImage = async (req: any, res: any) => {
     if (!profileImage) {
       return res.status(400).send({ message: "No file uploaded." });
     }
-
-    cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_NAME,
-      api_key: process.env.CLOUDINARY_KEY,
-      api_secret: process.env.CLOUDINARY_SECRET,
-    });
 
     const result: any = await uploadToCloudinary(profileImage.tempFilePath);
 

@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../../helpers/prismaClient";
+import { groupJoinStatusTypes } from "../../Types/chat";
 
 export const createGroup = async (req: Request, res: Response) => {
   const { name, createdBy, memberIds, interests } = req.body;
@@ -44,6 +45,10 @@ export const createGroup = async (req: Request, res: Response) => {
       .map((id) => ({
         groupId: group.id,
         userId: id,
+        status:
+          id === createdBy
+            ? groupJoinStatusTypes?.APPROVED
+            : groupJoinStatusTypes?.MEMBER_JOINING_PENDING,
       }));
 
     if (newMembers.length > 0) {
@@ -74,72 +79,128 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
   }
 
   try {
-    const alreadyMember = await prisma.groupMember.findFirst({
-      where: { userId, groupId },
+    const existingMembership = await prisma.groupMember.findFirst({
+      where: {
+        groupId,
+        userId,
+      },
     });
 
-    if (alreadyMember) {
-      return res.status(409).json({ message: "User is already a member." });
+    if (
+      existingMembership?.status ===
+        groupJoinStatusTypes?.ADMIN_APPROVAL_PENDING ||
+      existingMembership?.status ===
+        groupJoinStatusTypes?.MEMBER_JOINING_PENDING
+    ) {
+      return res.status(409).json({
+        message: "User already has a membership or pending request.",
+        data: existingMembership,
+      });
     }
 
     const member = await prisma.groupMember.create({
-      data: { groupId, userId },
+      data: {
+        groupId,
+        userId,
+        status: groupJoinStatusTypes?.MEMBER_JOINING_PENDING,
+      },
     });
 
     return res.status(201).json({
-      message: "Member added successfully.",
+      message: "Invitation sent successfully.",
       data: member,
     });
   } catch (err: any) {
     console.error("Add member error:", err);
-    return res
-      .status(500)
-      .json({ message: "Server error", error: err.message });
+    return res.status(500).json({
+      message: "Server error",
+      error: err.message,
+    });
   }
 };
 
 export const sendGroupMessage = async (req: Request, res: Response) => {
-  const { groupId } = req.params;
-  const { senderId, content } = req.body;
+  const { groupId, userId } = req.params;
+  const { content } = req.body;
 
-  if (!senderId || !content) {
+  if (!groupId || !userId || !content) {
     return res.status(400).json({
-      message: "senderId and content are required.",
+      message: "groupId, userId, and content are required.",
     });
   }
 
   try {
-    const check = await prisma.groupMember.findFirst({
-      where: { groupId, userId: senderId },
+    // Check membership
+    const membership = await prisma.groupMember.findFirst({
+      where: {
+        groupId,
+        userId,
+        status: "approved",
+      },
     });
 
-    if (!check) {
+    if (!membership) {
       return res.status(403).json({
-        message: "User is not a member of this group.",
+        message: "You are not allowed to send messages to this group.",
       });
     }
 
     const message = await prisma.groupMessage.create({
-      data: { groupId, senderId, content },
-      include: { sender: true },
+      data: {
+        groupId,
+        senderId: userId,
+        content,
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            profileImage: true,
+          },
+        },
+      },
     });
 
     return res.status(201).json({
-      message: "Message sent.",
+      message: "Message sent successfully.",
       data: message,
     });
   } catch (err: any) {
     console.error("Send group message error:", err);
-    return res
-      .status(500)
-      .json({ message: "Server error", error: err.message });
+    return res.status(500).json({
+      message: "Failed to send message.",
+      error: err.message,
+    });
   }
 };
 
 export const getGroupMessages = async (req: Request, res: Response) => {
-  const { groupId } = req.params;
+  const { groupId, userId } = req.params;
+
+  if (!groupId || !userId) {
+    return res.status(400).json({
+      message: "groupId and userId are required.",
+    });
+  }
 
   try {
+    // Check membership
+    const membership = await prisma.groupMember.findFirst({
+      where: {
+        groupId,
+        userId,
+        status: "approved", // enforce approved access
+      },
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        message: "You are not allowed to view messages in this group.",
+      });
+    }
+
     const messages = await prisma.groupMessage.findMany({
       where: { groupId },
       orderBy: { createdAt: "asc" },
@@ -156,14 +217,15 @@ export const getGroupMessages = async (req: Request, res: Response) => {
     });
 
     return res.status(200).json({
-      message: "Messages fetched.",
+      message: "Group messages fetched successfully.",
       data: messages,
     });
   } catch (err: any) {
     console.error("Fetch group messages error:", err);
-    return res
-      .status(500)
-      .json({ message: "Server error", error: err.message });
+    return res.status(500).json({
+      message: "Failed to fetch group messages.",
+      error: err.message,
+    });
   }
 };
 
@@ -172,7 +234,10 @@ export const getGroupMembers = async (req: Request, res: Response) => {
 
   try {
     const members = await prisma.groupMember.findMany({
-      where: { groupId },
+      where: {
+        groupId,
+        status: groupJoinStatusTypes.APPROVED,
+      },
       include: {
         user: {
           select: {
@@ -184,33 +249,36 @@ export const getGroupMembers = async (req: Request, res: Response) => {
           },
         },
       },
+      orderBy: {
+        createdAt: "asc",
+      },
     });
 
     return res.status(200).json({
-      message: "Group members fetched.",
+      message: "Group members fetched successfully.",
       data: members,
     });
   } catch (err: any) {
     console.error("Fetch members error:", err);
-    return res
-      .status(500)
-      .json({ message: "Server error", error: err.message });
+    return res.status(500).json({
+      message: "Server error",
+      error: err.message,
+    });
   }
 };
 
 export const removeUserFromGroup = async (req: Request, res: Response) => {
+  const { groupId, userId } = req.params;
+
+  if (!groupId || !userId) {
+    return res
+      .status(400)
+      .json({ message: "groupId and userId are required." });
+  }
+
   try {
-    const { groupId, userId } = req.body;
-
-    if (!groupId || !userId) {
-      return res
-        .status(400)
-        .json({ message: "groupId and userId are required." });
-    }
-
     const group = await prisma.group.findUnique({
       where: { id: groupId },
-      include: { members: true },
     });
 
     if (!group) {
@@ -220,37 +288,32 @@ export const removeUserFromGroup = async (req: Request, res: Response) => {
     if (group.createdById === userId) {
       return res
         .status(403)
-        .json({ message: "Owner cannot be removed from group." });
+        .json({ message: "Group owner cannot be removed." });
     }
 
     const membership = await prisma.groupMember.findFirst({
-      where: {
-        groupId,
-        userId,
-      },
+      where: { groupId, userId },
     });
 
     if (!membership) {
       return res
-        .status(400)
+        .status(404)
         .json({ message: "User is not a member of this group." });
     }
 
-    await prisma.groupMember.deleteMany({
-      where: {
-        groupId,
-        userId,
-      },
+    await prisma.groupMember.delete({
+      where: { id: membership.id },
     });
 
     return res.status(200).json({
       message: "User removed from group successfully.",
     });
   } catch (error: any) {
-    console.error("Error removing user:", error);
-    return res
-      .status(500)
-      .json({ message: "Internal server error", error: error.message });
+    console.error("Remove member error:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 };
 
@@ -326,7 +389,7 @@ export const getMyGroups = async (req: Request, res: Response) => {
     }
 
     const groups = await prisma.groupMember.findMany({
-      where: { userId },
+      where: { userId, status: { not: groupJoinStatusTypes?.ADMIN_REJECTED } },
       include: {
         group: {
           include: {
@@ -341,7 +404,16 @@ export const getMyGroups = async (req: Request, res: Response) => {
       },
     });
 
-    const formatted = groups.filter((gm) => gm.group).map((gm) => gm.group);
+    const formatted = groups
+      .filter((gm) => gm.group)
+      .map((gm) => ({
+        ...gm.group,
+        myMembership: {
+          id: gm.id,
+          status: gm.status,
+          joinedAt: gm.createdAt,
+        },
+      }));
 
     return res.status(200).json({
       message: "Groups fetched successfully.",
