@@ -102,12 +102,12 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
       data: {
         groupId,
         userId,
-        status: groupJoinStatusTypes?.ADMIN_APPROVAL_PENDING,
+        status: groupJoinStatusTypes?.MEMBER_JOINING_PENDING,
       },
     });
 
     return res.status(201).json({
-      message: "Join request sent successfully.",
+      message: "Invitation sent successfully.",
       data: member,
     });
   } catch (err: any) {
@@ -414,7 +414,7 @@ export const getMyGroups = async (req: Request, res: Response) => {
           joinedAt: gm.createdAt,
         },
       }));
-      
+
     return res.status(200).json({
       message: "Groups fetched successfully.",
       data: formatted,

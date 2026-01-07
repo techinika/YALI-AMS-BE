@@ -278,3 +278,26 @@ export const rejectJoinRequest = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const getUsersToInvite = async (req: Request, res: Response) => {
+  const { currentUserId, activeGroupId } = req.params;
+  const usersToInvite = await prisma.user.findMany({
+    where: {
+      id: {
+        not: currentUserId,
+      },
+      groupMembers: {
+        none: {
+          groupId: activeGroupId,
+        },
+      },
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+    },
+  });
+
+  return res.status(200).json({ data: usersToInvite });
+};

@@ -10,11 +10,13 @@ import {
 import { getAllUsers, getUserById } from "../controllers/Users/getUsers";
 import { deleteUser } from "../controllers/Users/deleteUser";
 import { importUsers } from "../controllers/Users/importUsers";
+import { exportMembersController } from "../controllers/Users/exportUsers";
 
 const router = Router();
 
 router.get("/", getAllUsers);
 router.get("/:userId", getUserById);
+router.post("/export/all", exportMembersController);
 router.post("/invite", inviteUser);
 router.put("/invite/renew/:userId", reInviteUser);
 router.post("/profile", CreateUserProfile);

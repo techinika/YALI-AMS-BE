@@ -38,6 +38,7 @@
     "cors": "^2.8.5",
     "countries-states-cities": "^1.0.6",
     "dotenv": "^17.2.3",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-fileupload": "^1.5.2",
     "handlebars": "^4.7.8",
