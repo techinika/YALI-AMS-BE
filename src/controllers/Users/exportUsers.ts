@@ -4,23 +4,23 @@ import cloudinary from "../../helpers/cloudinary";
 import { Request, Response } from "express";
 import { Readable } from "stream";
 
-function buildBaseRow(user: any) {
+function buildBaseRow(user: any, include: boolean) {
   return {
-    "First Name": user.firstName,
-    "Middle Name": user.middleName ?? "",
-    "Last Name": user.lastName,
-    "Email Address": user.email,
-    "Phone Number": user.phoneNumber ?? "",
-    "WhatsApp Number": user.whatsappNumber ?? "",
-    Gender: user.gender?.name ?? "",
-    Biography: user.bio ?? "",
-    "Country of Residence": user.residentCountry?.name ?? "",
-    "District of Residence": user.residentDistrict?.name ?? "",
-    "Sector of Residence": user.residentSector?.name ?? "",
-    "State/Province": user.state?.name ?? "",
-    Cohort: user.cohort?.name ?? "",
-    Track: user.track?.name ?? "",
-    "Profile Picture Link": user.profileImage?.link ?? "",
+    "First Name": include ? user.firstName : "",
+    "Middle Name": include ? user.middleName ?? "" : "",
+    "Last Name": include ? user.lastName : "",
+    "Email Address": include ? user.email : "",
+    "Phone Number": include ? user.phoneNumber ?? "" : "",
+    "WhatsApp Number": include ? user.whatsappNumber ?? "" : "",
+    Gender: include ? user.gender?.name ?? "" : "",
+    Biography: include ? user.bio ?? "" : "",
+    "Country of Residence": include ? user.residentCountry?.name ?? "" : "",
+    "District of Residence": include ? user.residentDistrict?.name ?? "" : "",
+    "Sector of Residence": include ? user.residentSector?.name ?? "" : "",
+    "State/Province": include ? user.state?.name ?? "" : "",
+    Cohort: include ? user.cohort?.name ?? "" : "",
+    Track: include ? user.track?.name ?? "" : "",
+    "Nearest Landmark": include ? user.nearestLandmark ?? "" : "",
 
     "Organization Name": "",
     "Organization Relation": "",
@@ -28,6 +28,10 @@ function buildBaseRow(user: any) {
     "Organization Website": "",
     "Organization Country": "",
     "Working Sectors (User-specific)": "",
+
+    Status: include ? user?.status : "",
+    "Created At": "",
+    "Last Updated": "",
   };
 }
 
@@ -92,16 +96,11 @@ export const exportMembersWithOrganizations = async (
   const rows: any[] = [];
 
   users.forEach((user) => {
-    if (user.userOrganizations.length === 0) {
-      rows.push(buildBaseRow(user));
-      return;
-    }
-
     const orgs = user?.userOrganizations;
 
     if (!orgs || orgs.length === 0) {
       rows.push({
-        ...buildBaseRow(user),
+        ...buildBaseRow(user, true),
 
         "Organization Name": "",
         "Organization Relation": "",
@@ -110,7 +109,6 @@ export const exportMembersWithOrganizations = async (
         "Organization Country": "",
         "Working Sectors (User-specific)": "",
 
-        Status: user?.status ?? "",
         "Created At": new Date(user.createdAt).toLocaleString(),
         "Last Updated": new Date(user.updatedAt).toLocaleString(),
       });
@@ -127,7 +125,7 @@ export const exportMembersWithOrganizations = async (
         .join(", ");
 
       rows.push({
-        ...buildBaseRow(user),
+        ...buildBaseRow(user, index === 0),
 
         "Organization Name": org?.name ?? "",
         "Organization Relation": uo.relation,
@@ -136,7 +134,6 @@ export const exportMembersWithOrganizations = async (
         "Organization Country": org?.country?.name ?? "",
         "Working Sectors (User-specific)": sectors,
 
-        Status: user?.status ?? "",
         "Created At":
           index === 0 ? new Date(user.createdAt).toLocaleString() : "",
         "Last Updated":
