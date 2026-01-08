@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../../helpers/prismaClient";
+import { groupJoinStatusTypes } from "../../Types/chat";
+import sendEmail from "../../helpers/sendMail";
 
 export const requestToJoinGroup = async (req: Request, res: Response) => {
   try {
@@ -31,18 +33,16 @@ export const requestToJoinGroup = async (req: Request, res: Response) => {
           .json({ message: "You are already a member of this group." });
       }
 
-      // Request already pending
       if (existingMembership.status === "admin_approval_pending") {
         return res.status(400).json({
           message: "Your request to join this group is still pending approval.",
         });
       }
 
-      // Allow re-request if previously rejected or left
       await prisma.groupMember.update({
         where: { id: existingMembership.id },
         data: {
-          status: "admin_approval_pending",
+          status: groupJoinStatusTypes?.ADMIN_APPROVAL_PENDING,
           createdAt: new Date(),
         },
       });
@@ -52,14 +52,55 @@ export const requestToJoinGroup = async (req: Request, res: Response) => {
       });
     }
 
-    // 3. Create fresh join request
     await prisma.groupMember.create({
       data: {
         groupId,
         userId,
-        status: "admin_approval_pending",
+        status: groupJoinStatusTypes?.ADMIN_APPROVAL_PENDING,
       },
     });
+
+    const admin = await prisma.user.findFirst({
+      where: { id: group?.createdById },
+    });
+
+    if (admin) {
+      await sendEmail({
+        subject: "New group join request on YALI AMS!",
+        name: admin?.firstName,
+        message: `<p>
+            A user has requested to join your group "<strong>${group.name}</strong>".
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Review request
+            </a>
+          </p>
+    <p style="font-size: 14px; color: #777;">
+      If you are not the admin of this group, please contact Admin immediately or ignore this.
+    </p></div>`,
+        receiver: admin?.email,
+      });
+
+      const notification = {
+        title: "New group join request on YALI AMS!",
+        message: `<p>
+            A user has requested to join your group "<strong>${group.name}</strong>".
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Review request
+            </a>
+          </p>`,
+        receiverId: group?.createdById,
+        opened: false,
+        createdAt: new Date(),
+      };
+
+      await prisma.notifications.create({
+        data: notification,
+      });
+    }
 
     return res.status(201).json({
       message: "Join request sent successfully. Awaiting admin approval.",
@@ -102,7 +143,7 @@ export const approveGroupJoinRequest = async (req: Request, res: Response) => {
       where: {
         groupId,
         userId,
-        status: "admin_approval_pending",
+        status: groupJoinStatusTypes?.ADMIN_APPROVAL_PENDING,
       },
     });
 
@@ -112,13 +153,52 @@ export const approveGroupJoinRequest = async (req: Request, res: Response) => {
       });
     }
 
-    // 3. Approve
     await prisma.groupMember.update({
       where: { id: membership.id },
       data: {
         status: "approved",
       },
     });
+
+    const member = await prisma.user.findFirst({ where: { id: userId } });
+
+    if (member) {
+      await sendEmail({
+        subject: "Your group join request was approved on YALI AMS!",
+        name: member?.firstName,
+        message: `<p>
+            Your request to join group "<strong>${group.name}</strong>" has been approved.
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Open Groups
+            </a>
+          </p>
+    <p style="font-size: 14px; color: #777;">
+      If you did not request to join this group, please contact Admin immediately or ignore this.
+    </p></div>`,
+        receiver: member?.email,
+      });
+
+      const notification = {
+        title: "New group join request on YALI AMS!",
+        message: `<p>
+            Your request to join group "<strong>${group.name}</strong>" has been approved.
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Open Groups
+            </a>
+          </p>`,
+        receiverId: userId,
+        opened: false,
+        createdAt: new Date(),
+      };
+
+      await prisma.notifications.create({
+        data: notification,
+      });
+    }
 
     return res.status(200).json({
       message: "User approved and added to the group.",
@@ -140,12 +220,13 @@ export const acceptGroupInvitation = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "groupId is required." });
     }
 
-    // 1. Find invitation
+    const group = await prisma.group.findFirst({ where: { id: groupId } });
+
     const invitation = await prisma.groupMember.findFirst({
       where: {
         groupId,
         userId,
-        status: "member_joining_pending",
+        status: groupJoinStatusTypes?.MEMBER_JOINING_PENDING,
       },
     });
 
@@ -155,13 +236,58 @@ export const acceptGroupInvitation = async (req: Request, res: Response) => {
       });
     }
 
-    // 2. Accept invitation
     await prisma.groupMember.update({
       where: { id: invitation.id },
       data: {
-        status: "approved",
+        status: groupJoinStatusTypes?.APPROVED,
       },
     });
+
+    const admin = await prisma.user.findFirst({
+      where: { id: group?.createdById },
+    });
+
+    const member = await prisma.user.findFirst({
+      where: { id: userId },
+    });
+
+    if (admin) {
+      await sendEmail({
+        subject: "Member accepted invitation to join group on YALI AMS!",
+        name: admin?.firstName,
+        message: `<p>
+            Member ${member?.firstName} has accepted your invitation to join group "<strong>${group?.name}</strong>" on YALI AMS.
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Open Groups
+            </a>
+          </p>
+    <p style="font-size: 14px; color: #777;">
+      If you did send this invitation to join this group, please contact Admin immediately or ignore this.
+    </p></div>`,
+        receiver: admin?.email,
+      });
+
+      const notification = {
+        title: "Member accepted invitation to join group on YALI AMS!",
+        message: `<p>
+           Member ${member?.firstName} has accepted your invitation to join group "<strong>${group?.name}</strong>" on YALI AMS.
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Open Groups
+            </a>
+          </p>`,
+        receiverId: group?.createdById,
+        opened: false,
+        createdAt: new Date(),
+      };
+
+      await prisma.notifications.create({
+        data: notification,
+      });
+    }
 
     return res.status(200).json({
       message: "You have successfully joined the group.",
@@ -186,11 +312,12 @@ export const declineGroupInvitation = async (req: Request, res: Response) => {
   }
 
   try {
+    const group = await prisma.group.findFirst({ where: { id: groupId } });
     const membership = await prisma.groupMember.findFirst({
       where: {
         groupId,
         userId,
-        status: "member_joining_pending",
+        status: groupJoinStatusTypes?.MEMBER_JOINING_PENDING,
       },
     });
 
@@ -203,9 +330,55 @@ export const declineGroupInvitation = async (req: Request, res: Response) => {
     await prisma.groupMember.update({
       where: { id: membership.id },
       data: {
-        status: "member_rejected",
+        status: groupJoinStatusTypes?.MEMBER_REJECTED,
       },
     });
+
+    const admin = await prisma.user.findFirst({
+      where: { id: group?.createdById },
+    });
+
+    const member = await prisma.user.findFirst({
+      where: { id: userId },
+    });
+
+    if (admin) {
+      await sendEmail({
+        subject: "Member rejected invitation to join group on YALI AMS!",
+        name: admin?.firstName,
+        message: `<p>
+            Member ${member?.firstName} has rejected your invitation to join group "<strong>${group?.name}</strong>" on YALI AMS.
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Open Groups
+            </a>
+          </p>
+    <p style="font-size: 14px; color: #777;">
+      If you did send this invitation to join this group, please contact Admin immediately or ignore this.
+    </p></div>`,
+        receiver: admin?.email,
+      });
+
+      const notification = {
+        title: "Member rejected invitation to join group on YALI AMS!",
+        message: `<p>
+           Member ${member?.firstName} has accepted your invitation to join group "<strong>${group?.name}</strong>" on YALI AMS.
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Open Groups
+            </a>
+          </p>`,
+        receiverId: group?.createdById,
+        opened: false,
+        createdAt: new Date(),
+      };
+
+      await prisma.notifications.create({
+        data: notification,
+      });
+    }
 
     return res.status(200).json({
       message: "Group invitation declined successfully.",
@@ -250,7 +423,7 @@ export const rejectJoinRequest = async (req: Request, res: Response) => {
       where: {
         groupId,
         userId,
-        status: "admin_approval_pending",
+        status: groupJoinStatusTypes?.ADMIN_APPROVAL_PENDING,
       },
     });
 
@@ -263,9 +436,51 @@ export const rejectJoinRequest = async (req: Request, res: Response) => {
     await prisma.groupMember.update({
       where: { id: membership.id },
       data: {
-        status: "admin_rejected",
+        status: groupJoinStatusTypes?.ADMIN_REJECTED,
       },
     });
+
+    const member = await prisma.user.findFirst({
+      where: { id: userId },
+    });
+
+    if (member) {
+      await sendEmail({
+        subject: "Your request to join group on YALI AMS is rejected!",
+        name: member?.firstName,
+        message: `<p>
+             Your request to join group "<strong>${group?.name}</strong>" on YALI AMS is rejected by Admin.
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Open Groups
+            </a>
+          </p>
+    <p style="font-size: 14px; color: #777;">
+      If you did send this request to join this group, please ignore this.
+    </p></div>`,
+        receiver: member?.email,
+      });
+
+      const notification = {
+        title: "Your request to join group on YALI AMS is rejected!",
+        message: `<p>
+           Your request to join group "<strong>${group?.name}</strong>" on YALI AMS is rejected by Admin.
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Open Groups
+            </a>
+          </p>`,
+        receiverId: userId,
+        opened: false,
+        createdAt: new Date(),
+      };
+
+      await prisma.notifications.create({
+        data: notification,
+      });
+    }
 
     return res.status(200).json({
       message: "Join request rejected successfully.",

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../../helpers/prismaClient";
 import { groupJoinStatusTypes } from "../../Types/chat";
+import sendEmail from "../../helpers/sendMail";
 
 export const createGroup = async (req: Request, res: Response) => {
   const { name, createdBy, memberIds, interests } = req.body;
@@ -56,6 +57,50 @@ export const createGroup = async (req: Request, res: Response) => {
         data: newMembers,
         skipDuplicates: true,
       });
+
+      newMembers.forEach(async (m) => {
+        const member = await prisma.user.findFirst({
+          where: { id: m?.userId },
+        });
+
+        if (member) {
+          await sendEmail({
+            subject: "Your have been invited to join a group on YALI AMS!",
+            name: member?.firstName,
+            message: `<p>
+             You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Review Invitation
+            </a>
+          </p>
+    <p style="font-size: 14px; color: #777;">
+      If you do not want to join this group, please ignore this.
+    </p></div>`,
+            receiver: member?.email,
+          });
+
+          const notification = {
+            title: "Your have been invited to join a group on YALI AMS!",
+            message: `<p>
+           You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Review Invitation
+            </a>
+          </p>`,
+            receiverId: m?.userId,
+            opened: false,
+            createdAt: new Date(),
+          };
+
+          await prisma.notifications.create({
+            data: notification,
+          });
+        }
+      });
     }
 
     return res.status(201).json({
@@ -86,6 +131,8 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
       },
     });
 
+    const group = await prisma.group.findFirst({ where: { id: groupId } });
+
     if (
       existingMembership?.status ===
         groupJoinStatusTypes?.ADMIN_APPROVAL_PENDING ||
@@ -105,6 +152,48 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
         status: groupJoinStatusTypes?.MEMBER_JOINING_PENDING,
       },
     });
+
+    const user = await prisma.user.findFirst({
+      where: { id: userId },
+    });
+
+    if (user) {
+      await sendEmail({
+        subject: "Your have been invited to join a group on YALI AMS!",
+        name: user?.firstName,
+        message: `<p>
+             You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Review Invitation
+            </a>
+          </p>
+    <p style="font-size: 14px; color: #777;">
+      If you do not want to join this group, please ignore this.
+    </p></div>`,
+        receiver: user?.email,
+      });
+
+      const notification = {
+        title: "Your have been invited to join a group on YALI AMS!",
+        message: `<p>
+           You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Review Invitation
+            </a>
+          </p>`,
+        receiverId: userId,
+        opened: false,
+        createdAt: new Date(),
+      };
+
+      await prisma.notifications.create({
+        data: notification,
+      });
+    }
 
     return res.status(201).json({
       message: "Invitation sent successfully.",
@@ -304,6 +393,48 @@ export const removeUserFromGroup = async (req: Request, res: Response) => {
     await prisma.groupMember.delete({
       where: { id: membership.id },
     });
+
+    const user = await prisma.user.findFirst({
+      where: { id: userId },
+    });
+
+    if (user) {
+      await sendEmail({
+        subject: "You have been removed from group on YALI AMS!",
+        name: user?.firstName,
+        message: `<p>
+             You have been removed from group "<strong>${group?.name}</strong>" on YALI AMS.
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Open Groups
+            </a>
+          </p>
+    <p style="font-size: 14px; color: #777;">
+      If you need more information, please reach out to group admin.
+    </p></div>`,
+        receiver: user?.email,
+      });
+
+      const notification = {
+        title: "You have been removed from group on YALI AMS!",
+        message: `<p>
+           You have been removed from group "<strong>${group?.name}</strong>" on YALI AMS.
+          </p>
+          <p>
+            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
+              Open Groups
+            </a>
+          </p>`,
+        receiverId: userId,
+        opened: false,
+        createdAt: new Date(),
+      };
+
+      await prisma.notifications.create({
+        data: notification,
+      });
+    }
 
     return res.status(200).json({
       message: "User removed from group successfully.",
