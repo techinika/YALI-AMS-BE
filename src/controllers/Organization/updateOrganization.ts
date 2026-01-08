@@ -15,6 +15,7 @@ export async function updateOrganization(req: Request, res: Response) {
       relation,
       position,
       connectionId,
+      workingSectors = [],
     } = req.body;
 
     if (!organizationId || !userId) {
@@ -23,6 +24,17 @@ export async function updateOrganization(req: Request, res: Response) {
         .json({ message: "organizationId and userId are required" });
     }
 
+    const cleanDistrict =
+      districtId && districtId !== ""
+        ? await prisma.district
+            .findFirst({
+              where: { id: districtId },
+            })
+            .then((r) => {
+              return r?.name;
+            })
+        : undefined;
+
     const result = await prisma.$transaction(async (tx) => {
       const organization = await tx.organization.update({
         where: { id: organizationId },
@@ -30,7 +42,7 @@ export async function updateOrganization(req: Request, res: Response) {
           name,
           website,
           countryId,
-          districtId: districtId || null,
+          districtId: cleanDistrict || null,
           sectorId: sectorId || null,
           stateId: stateId || null,
         },
@@ -53,6 +65,49 @@ export async function updateOrganization(req: Request, res: Response) {
           position,
         },
       });
+
+      const existing = await tx.organization_WorkingSector.findMany({
+        where: {
+          userId,
+          organizationId,
+        },
+        select: {
+          id: true,
+          workingSectorId: true,
+        },
+      });
+
+      const existingIds = new Set(
+        existing.map((ws) => ws.workingSectorId).filter(Boolean) as string[]
+      );
+
+      const submittedIds = new Set(workingSectors);
+
+      const toDelete = existing.filter(
+        (ws) => ws.workingSectorId && !submittedIds.has(ws.workingSectorId)
+      );
+
+      if (toDelete.length > 0) {
+        await tx.organization_WorkingSector.deleteMany({
+          where: {
+            id: { in: toDelete.map((w) => w.id) },
+          },
+        });
+      }
+
+      const toCreate = workingSectors.filter(
+        (sectorId: string) => !existingIds.has(sectorId)
+      );
+
+      if (toCreate.length > 0) {
+        await tx.organization_WorkingSector.createMany({
+          data: toCreate.map((sectorId: string) => ({
+            userId,
+            organizationId,
+            workingSectorId: sectorId,
+          })),
+        });
+      }
 
       return organization;
     });
