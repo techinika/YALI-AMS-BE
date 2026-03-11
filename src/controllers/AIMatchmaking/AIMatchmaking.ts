@@ -8,7 +8,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY!);
 export const createMatchmakingRequest = async (req: Request, res: Response) => {
   const { interests, description, userId } = req.body;
 
-  if (!userId || !interests || !description) {
+  if (!userId || !interests) {
     return res.status(400).json({
       message: "userId, interests, and description are required.",
     });
@@ -40,7 +40,9 @@ export const createMatchmakingRequest = async (req: Request, res: Response) => {
       data: {
         userId,
         interests,
-        description,
+        description:
+          description ??
+          "No description provided. Please use only interests provided to find matching users.",
         status: "pending",
       },
     });

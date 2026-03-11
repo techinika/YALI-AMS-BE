@@ -16,41 +16,56 @@ export const inviteUser = async (req: Request, res: Response) => {
   }
 
   try {
-    const existing = await prisma.user.findFirst({
-      where: {
-        email,
-        status: {
-          not: userStatusTypes?.DELETED,
-        },
-      },
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
     });
-    if (existing) {
+
+    if (existingUser && existingUser.status !== userStatusTypes?.DELETED) {
       return res
         .status(409)
-        .json({ error: "A user with this email already exists" });
+        .json({ error: "A user with this email already exists." });
     }
 
     const inviteToken = generateToken({ email });
 
-    const createdUser = await prisma.user.create({
-      data: {
-        email,
-        firstName,
-        lastName: "",
-        middleName: "",
-        phoneNumber: "",
-        whatsappNumber: "",
-        bio: "",
-        facebook: "",
-        instagram: "",
-        linkedin: "",
-        twitter: "",
-        password: "",
-        status: userStatusTypes?.INVITED,
-        refreshToken: inviteToken,
-        createdAt: new Date(),
-      },
-    });
+    let targetUser;
+
+    if (existingUser && existingUser.status === userStatusTypes?.DELETED) {
+      // 3. RE-INVITE: Update the existing deleted record
+      targetUser = await prisma.user.update({
+        where: { email },
+        data: {
+          firstName,
+          lastName: "",
+          middleName: "",
+          status: userStatusTypes?.INVITED,
+          refreshToken: inviteToken,
+          password: "", // Reset password to ensure they must use the token
+          // Reset other fields as necessary
+        },
+      });
+    } else {
+      // 4. NEW INVITE: Create a brand new record
+      targetUser = await prisma.user.create({
+        data: {
+          email,
+          firstName,
+          lastName: "",
+          middleName: "",
+          phoneNumber: "",
+          whatsappNumber: "",
+          bio: "",
+          facebook: "",
+          instagram: "",
+          linkedin: "",
+          twitter: "",
+          password: "",
+          status: userStatusTypes?.INVITED,
+          refreshToken: inviteToken,
+          createdAt: new Date(),
+        },
+      });
+    }
 
     await sendEmail({
       subject: "Your YALI AMS Account Invitation",
@@ -72,7 +87,7 @@ export const inviteUser = async (req: Request, res: Response) => {
 
     return res.status(201).json({
       message: "Invitation sent successfully",
-      user: createdUser,
+      user: targetUser,
     });
   } catch (err) {
     console.error("Invite user error:", err);
