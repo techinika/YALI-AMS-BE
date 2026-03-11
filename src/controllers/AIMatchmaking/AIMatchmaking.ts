@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../../helpers/prismaClient";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { extractJson } from "../../helpers/extractJSON";
+import { userStatusTypes } from "../../Types/users";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY!);
 
@@ -21,6 +22,11 @@ export const createMatchmakingRequest = async (req: Request, res: Response) => {
     });
 
     const members = await prisma.user.findMany({
+      where: {
+        status: {
+          not: userStatusTypes?.DELETED,
+        },
+      },
       include: {
         userOrganizations: {
           include: {
