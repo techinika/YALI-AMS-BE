@@ -1,0 +1,1893 @@
+openapi: 3.0.0
+info:
+  title: YALI AMS API
+  version: 1.0.0
+  description: Alumni Management System API for YALI Rwanda Chapter
+  contact:
+    name: Ubunifu Labs
+    url: https://github.com/techinika/YALI-AMS_BE
+servers:
+  - url: http://localhost:7000
+    description: Development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        error:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        genderId:
+          type: integer
+        profilePicture:
+          type: string
+        bio:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        website:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Group:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        content:
+          type: string
+        senderId:
+          type: string
+        receiverId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Missing required fields
+        '401':
+          description: Invalid credentials
+        '500':
+          description: Server error
+
+  /api/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/auth/change-pass:
+    post:
+      tags:
+        - Authentication
+      summary: Change password
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+      responses:
+        '200':
+          description: Password changed successfully
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/auth/request-link:
+    post:
+      tags:
+        - Authentication
+      summary: Request password reset link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Reset link sent
+        '400':
+          description: Email is required
+        '500':
+          description: Server error
+
+  /api/auth/reset-password:
+    post:
+      tags:
+        - Authentication
+      summary: Reset password with token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - newPassword
+              properties:
+                token:
+                  type: string
+                newPassword:
+                  type: string
+      responses:
+        '200':
+          description: Password reset successful
+        '400':
+          description: Token and new password are required
+        '500':
+          description: Server error
+
+  /api/users:
+    get:
+      tags:
+        - Users
+      summary: Get all users
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of users
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/users/{userId}:
+    get:
+      tags:
+        - Users
+      summary: Get user by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User details
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+        '500':
+          description: Server error
+    put:
+      tags:
+        - Users
+      summary: Update user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                phone:
+                  type: string
+                dateOfBirth:
+                  type: string
+                  format: date
+                bio:
+                  type: string
+      responses:
+        '200':
+          description: User updated
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+        '500':
+          description: Server error
+    delete:
+      tags:
+        - Users
+      summary: Delete user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User deleted
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+        '500':
+          description: Server error
+
+  /api/users/export/all:
+    post:
+      tags:
+        - Users
+      summary: Export all users
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Export successful
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/users/invite:
+    post:
+      tags:
+        - Users
+      summary: Invite user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Invitation sent
+        '400':
+          description: Invalid email
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/users/invite/renew/{userId}:
+    put:
+      tags:
+        - Users
+      summary: Re-invite user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Invitation renewed
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+        '500':
+          description: Server error
+
+  /api/users/profile:
+    post:
+      tags:
+        - Users
+      summary: Create user profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                phone:
+                  type: string
+                dateOfBirth:
+                  type: string
+                  format: date
+                genderId:
+                  type: integer
+                bio:
+                  type: string
+      responses:
+        '200':
+          description: Profile created
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/users/org/add:
+    post:
+      tags:
+        - Users
+      summary: Add organization to user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+                - organizationId
+              properties:
+                userId:
+                  type: string
+                organizationId:
+                  type: string
+      responses:
+        '200':
+          description: Organization added
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/users/org/remove:
+    delete:
+      tags:
+        - Users
+      summary: Remove organization from user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: string
+        - name: organizationId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Organization removed
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/users/import:
+    post:
+      tags:
+        - Users
+      summary: Import users
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - users
+              properties:
+                users:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: Import successful
+        '400':
+          description: Invalid data
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/users/role/{userId}:
+    post:
+      tags:
+        - Users
+      summary: Change user role
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - roleId
+              properties:
+                roleId:
+                  type: integer
+      responses:
+        '200':
+          description: Role changed
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/organizations:
+    get:
+      tags:
+        - Organizations
+      summary: Get all organizations
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of organizations
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/organizations/{id}:
+    get:
+      tags:
+        - Organizations
+      summary: Get organization by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Organization details
+        '401':
+          description: Unauthorized
+        '404':
+          description: Organization not found
+        '500':
+          description: Server error
+
+  /api/organizations/user/{id}:
+    get:
+      tags:
+        - Organizations
+      summary: Get organizations for user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User organizations
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/organizations/user/{id}/{orgId}:
+    get:
+      tags:
+        - Organizations
+      summary: Get specific organization for user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Organization details
+        '401':
+          description: Unauthorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+  /api/organizations/new:
+    post:
+      tags:
+        - Organizations
+      summary: Create new organization
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                location:
+                  type: string
+                website:
+                  type: string
+      responses:
+        '200':
+          description: Organization created
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/organizations/update:
+    put:
+      tags:
+        - Organizations
+      summary: Update organization
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                location:
+                  type: string
+                website:
+                  type: string
+      responses:
+        '200':
+          description: Organization updated
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/organizations/ws/add:
+    post:
+      tags:
+        - Organizations
+      summary: Add working sector to organization
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - organizationId
+                - workingSectorId
+              properties:
+                organizationId:
+                  type: string
+                workingSectorId:
+                  type: integer
+      responses:
+        '200':
+          description: Working sector added
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/organizations/ws/remove:
+    delete:
+      tags:
+        - Organizations
+      summary: Remove working sector from organization
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organizationId
+          in: query
+          schema:
+            type: string
+        - name: workingSectorId
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Working sector removed
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat:
+    get:
+      tags:
+        - Chat
+      summary: Get messages
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of messages
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+    post:
+      tags:
+        - Chat
+      summary: Send message
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - receiverId
+                - content
+              properties:
+                receiverId:
+                  type: string
+                content:
+                  type: string
+      responses:
+        '200':
+          description: Message sent
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/{id}:
+    get:
+      tags:
+        - Chat
+      summary: Get private chats
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Private chats
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/{id}/{oid}:
+    get:
+      tags:
+        - Chat
+      summary: Get private messages
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: oid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Private messages
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/top:
+    get:
+      tags:
+        - Chat
+      summary: Get top active members
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Top active members
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/group/create:
+    post:
+      tags:
+        - Chat
+      summary: Create group
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Group created
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/group/all:
+    get:
+      tags:
+        - Chat
+      summary: Get all groups
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of groups
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/group/{groupId}:
+    get:
+      tags:
+        - Chat
+      summary: Get group by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Group details
+        '401':
+          description: Unauthorized
+        '404':
+          description: Group not found
+        '500':
+          description: Server error
+
+  /api/chat/group/my/{userId}:
+    get:
+      tags:
+        - Chat
+      summary: Get my groups
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User groups
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/group/add-member/{groupId}:
+    post:
+      tags:
+        - Chat
+      summary: Add member to group
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: Member added
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/group/remove-member:
+    delete:
+      tags:
+        - Chat
+      summary: Remove member from group
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: groupId
+          in: query
+          schema:
+            type: string
+        - name: userId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Member removed
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/group/get-members/{groupId}:
+    get:
+      tags:
+        - Chat
+      summary: Get group members
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Group members
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/group/messages/{groupId}/{userId}:
+    get:
+      tags:
+        - Chat
+      summary: Get group messages
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Group messages
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+    post:
+      tags:
+        - Chat
+      summary: Send group message
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+      responses:
+        '200':
+          description: Message sent
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/group/to-invite/{currentUserId}/{activeGroupId}:
+    get:
+      tags:
+        - Chat
+      summary: Get users to invite
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: currentUserId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: activeGroupId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Users to invite
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/group/join-request:
+    post:
+      tags:
+        - Chat
+      summary: Request to join group
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - groupId
+                - userId
+              properties:
+                groupId:
+                  type: string
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: Join request sent
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/group/approve-request/admin:
+    post:
+      tags:
+        - Chat
+      summary: Approve join request (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - groupId
+                - userId
+              properties:
+                groupId:
+                  type: string
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: Request approved
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/group/approve-request/member:
+    post:
+      tags:
+        - Chat
+      summary: Accept group invitation (member)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - groupId
+                - userId
+              properties:
+                groupId:
+                  type: string
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: Invitation accepted
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/group/reject-request/{groupId}:
+    post:
+      tags:
+        - Chat
+      summary: Reject join request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: Request rejected
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/chat/group/decline-request/{groupId}:
+    post:
+      tags:
+        - Chat
+      summary: Decline group invitation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: Invitation declined
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/data/genders:
+    get:
+      tags:
+        - Data
+      summary: Get all genders
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of genders
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/data/tracks:
+    get:
+      tags:
+        - Data
+      summary: Get all tracks
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of tracks
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+    post:
+      tags:
+        - Data
+      summary: Add track
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Track added
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/data/track/{id}:
+    delete:
+      tags:
+        - Data
+      summary: Delete track
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Track deleted
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/data/working-sectors:
+    get:
+      tags:
+        - Data
+      summary: Get all working sectors
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of working sectors
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+    post:
+      tags:
+        - Data
+      summary: Add working sector
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Working sector added
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/data/working-sector/{id}:
+    delete:
+      tags:
+        - Data
+      summary: Delete working sector
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Working sector deleted
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/data/countries:
+    get:
+      tags:
+        - Data
+      summary: Get all countries
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of countries
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/data/states:
+    get:
+      tags:
+        - Data
+      summary: Get all states
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of states
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/data/states/{countryId}:
+    get:
+      tags:
+        - Data
+      summary: Get states by country
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: countryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of states
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/data/districts:
+    get:
+      tags:
+        - Data
+      summary: Get all districts
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of districts
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/data/district/{districtId}:
+    get:
+      tags:
+        - Data
+      summary: Get district by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: districtId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: District details
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/data/district/sector/{districtId}:
+    get:
+      tags:
+        - Data
+      summary: Get sectors by district
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: districtId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of sectors
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/data/sectors:
+    get:
+      tags:
+        - Data
+      summary: Get all sectors
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of sectors
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/data/sector/{sectorId}:
+    get:
+      tags:
+        - Data
+      summary: Get sector by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sectorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Sector details
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/data/cohorts:
+    get:
+      tags:
+        - Data
+      summary: Get all cohorts
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of cohorts
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+    post:
+      tags:
+        - Data
+      summary: Add cohorts
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Cohorts added
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/data/cohort/{id}:
+    delete:
+      tags:
+        - Data
+      summary: Delete cohort
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cohort deleted
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/notification/{userId}:
+    get:
+      tags:
+        - Notifications
+      summary: Get user notifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of notifications
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/notification:
+    post:
+      tags:
+        - Notifications
+      summary: Open notification
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - notificationId
+              properties:
+                notificationId:
+                  type: string
+      responses:
+        '200':
+          description: Notification opened
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/notification/unopened/{userId}:
+    get:
+      tags:
+        - Notifications
+      summary: Get unopened notifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Unopened notifications
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/notification/update/setup:
+    get:
+      tags:
+        - Notifications
+      summary: Get all notification setups
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Notification setups
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+    put:
+      tags:
+        - Notifications
+      summary: Update notification details
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                email:
+                  type: boolean
+                push:
+                  type: boolean
+                inApp:
+                  type: boolean
+      responses:
+        '200':
+          description: Notification updated
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/notification/update/setup/one:
+
+  /api/stats:
+    get:
+      tags:
+        - Stats
+      summary: Get dashboard stats
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard statistics
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/upload/image:
+    post:
+      tags:
+        - Upload
+      summary: Upload image
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - image
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Image uploaded
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/activity/recent:
+    get:
+      tags:
+        - Activity
+      summary: Get recent activity logs
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Recent activity logs
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/matchmaking/initiate:
+    post:
+      tags:
+        - Matchmaking
+      summary: Initiate matchmaking
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: Matchmaking initiated
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/matchmaking/status/{matchId}:
+    get:
+      tags:
+        - Matchmaking
+      summary: Get matchmaking status
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: matchId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Match status
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
