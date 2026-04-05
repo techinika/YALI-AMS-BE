@@ -105,7 +105,7 @@ model User {
   stateId                    String?
   state                      State?                       @relation(fields: [stateId], references: [id])
   residentDistrictId         String?
-  residentDistrict           District?                    @relation(fields: [residentDistrictId], references: [id])
+  residentDistrict           District?                    @relation(fields: [residentDistrictId], references: [name])
   residentSectorId           String?
   residentSector             Sector?                      @relation(fields: [residentSectorId], references: [id])
   whatsappNumber             String
@@ -137,6 +137,12 @@ model User {
   groupMembers               GroupMember[]
   groupMessages              GroupMessage[]
   groups                     Group[]
+
+  @@index([status])
+  @@index([cohortId])
+  @@index([trackId])
+  @@index([genderName])
+  @@index([roleId])
 }
 
 model Message {
@@ -149,6 +155,10 @@ model Message {
   public     Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
 }
 
 model Notifications {
@@ -160,6 +170,9 @@ model Notifications {
   opened     Boolean
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@index([receiverId])
+  @@index([createdAt])
 }
 
 model NotificationSetup {
@@ -219,6 +232,10 @@ model Organization_WorkingSector {
   user            User           @relation(fields: [userId], references: [id])
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([workingSectorId])
 }
 
 model User_Organization {
@@ -231,6 +248,8 @@ model User_Organization {
   position       String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+
+  @@index([userId])
 }
 
 model ActivityLog {
@@ -241,6 +260,8 @@ model ActivityLog {
   userId    String?
   timestamp DateTime @default(now())
   details   Json?
+
+  @@index([timestamp])
 }
 
 model MatchmakingRequest {
@@ -259,6 +280,8 @@ model MatchmakingRequest {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   matchmakingItems MatchmakingItem[]
+
+  @@index([userId])
 }
 
 model MatchmakingItem {
@@ -274,6 +297,8 @@ model MatchmakingItem {
   reason    String?
 
   createdAt DateTime @default(now())
+
+  @@index([requestId])
 }
 
 model Group {
@@ -285,6 +310,9 @@ model Group {
   createdBy     User           @relation(fields: [createdById], references: [id])
   members       GroupMember[]
   groupMessages GroupMessage[]
+
+  @@index([createdById])
+  @@index([interests])
 }
 
 model GroupMember {
@@ -295,6 +323,10 @@ model GroupMember {
   groupId   String
   status    String   @default("admin_approval_pending") // "admin_approval_pending", "member_joining_pending", "admin_rejected", "member_left", "member_rejected", "approved" 
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([groupId])
+  @@index([status])
 }
 
 model GroupMessage {
@@ -307,4 +339,7 @@ model GroupMessage {
 
   content   String
   createdAt DateTime @default(now())
+
+  @@index([groupId])
+  @@index([createdAt])
 }

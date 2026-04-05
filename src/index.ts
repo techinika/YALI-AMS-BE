@@ -9,6 +9,10 @@ import { generateProfileUpdateNotifications } from "./controllers/notificationCo
 import path from "path";
 import { initSockets } from "./sockets";
 import { prismaContext } from "./helpers/prisma-context";
+import { apiLimiter } from "./middleware/rateLimit";
+import { createAiMatchmakingWorker } from "./helpers/queue";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./helpers/swagger";
 import "dotenv/config";
 
 declare global {
@@ -47,7 +51,9 @@ app.use(express.static(path.join(__dirname, "../public")));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-app.use("/api", route);
+app.use("/api", apiLimiter, route);
+
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use((req: Request, res, next) => {
   prismaContext.run({ userId: req?.user?.id }, () => {
@@ -64,6 +70,8 @@ initSockets(server);
 server.listen(HTTP_PORT, () => {
   console.log(`HTTP Server running on port ${HTTP_PORT}`);
 });
+
+createAiMatchmakingWorker();
 
 cron.schedule("0 * * * *", async () => {
   console.log("Cron Ready!");
