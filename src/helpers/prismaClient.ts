@@ -9,7 +9,7 @@ const adapter = new PrismaMariaDb({
   user: process.env.DATABASE_USER,
   password: process.env.DATABASE_PASSWORD,
   database: process.env.DATABASE_NAME,
-  connectionLimit: Number(process.env.CONNECTION_LIMIT) || 5,
+  connectionLimit: Number(process.env.CONNECTION_LIMIT) || 20,
   allowPublicKeyRetrieval: true,
 });
 

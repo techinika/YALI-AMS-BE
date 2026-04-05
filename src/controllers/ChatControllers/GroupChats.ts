@@ -58,15 +58,20 @@ export const createGroup = async (req: Request, res: Response) => {
         skipDuplicates: true,
       });
 
-      newMembers.forEach(async (m) => {
-        const member = await prisma.user.findFirst({
-          where: { id: m?.userId },
-        });
+      const memberIds = newMembers.map((m) => m.userId);
+      const members = await prisma.user.findMany({
+        where: { id: { in: memberIds } },
+        select: { id: true, firstName: true, email: true },
+      });
 
+      const memberMap = new Map(members.map((m) => [m.id, m]));
+
+      for (const m of newMembers) {
+        const member = memberMap.get(m.userId);
         if (member) {
           await sendEmail({
             subject: "Your have been invited to join a group on YALI AMS!",
-            name: member?.firstName,
+            name: member.firstName,
             message: `<p>
              You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.
           </p>
@@ -78,7 +83,7 @@ export const createGroup = async (req: Request, res: Response) => {
     <p style="font-size: 14px; color: #777;">
       If you do not want to join this group, please ignore this.
     </p></div>`,
-            receiver: member?.email,
+            receiver: member.email,
           });
 
           const notification = {
@@ -100,7 +105,7 @@ export const createGroup = async (req: Request, res: Response) => {
             data: notification,
           });
         }
-      });
+      }
     }
 
     return res.status(201).json({
@@ -153,14 +158,15 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
       },
     });
 
-    const user = await prisma.user.findFirst({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
+      select: { id: true, firstName: true, email: true },
     });
 
     if (user) {
       await sendEmail({
         subject: "Your have been invited to join a group on YALI AMS!",
-        name: user?.firstName,
+        name: user.firstName,
         message: `<p>
              You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.
           </p>
@@ -172,7 +178,7 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
     <p style="font-size: 14px; color: #777;">
       If you do not want to join this group, please ignore this.
     </p></div>`,
-        receiver: user?.email,
+        receiver: user.email,
       });
 
       const notification = {
@@ -394,14 +400,15 @@ export const removeUserFromGroup = async (req: Request, res: Response) => {
       where: { id: membership.id },
     });
 
-    const user = await prisma.user.findFirst({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
+      select: { id: true, firstName: true, email: true },
     });
 
     if (user) {
       await sendEmail({
         subject: "You have been removed from group on YALI AMS!",
-        name: user?.firstName,
+        name: user.firstName,
         message: `<p>
              You have been removed from group "<strong>${group?.name}</strong>" on YALI AMS.
           </p>
@@ -413,7 +420,7 @@ export const removeUserFromGroup = async (req: Request, res: Response) => {
     <p style="font-size: 14px; color: #777;">
       If you need more information, please reach out to group admin.
     </p></div>`,
-        receiver: user?.email,
+        receiver: user.email,
       });
 
       const notification = {
@@ -526,10 +533,23 @@ export const getMyGroups = async (req: Request, res: Response) => {
           include: {
             members: {
               include: {
-                user: true,
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                  },
+                },
               },
             },
-            createdBy: true,
+            createdBy: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
           },
         },
       },
