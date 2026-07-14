@@ -2,10 +2,12 @@ import { Request, Response } from "express";
 import prisma from "../../helpers/prismaClient";
 import { groupJoinStatusTypes } from "../../Types/chat";
 import sendEmail from "../../helpers/sendMail";
+import { AuthenticatedRequest } from "../../middleware/auth";
 
-export const requestToJoinGroup = async (req: Request, res: Response) => {
+export const requestToJoinGroup = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { groupId, userId } = req.body;
+    const { groupId } = req.body;
+    const userId = req.user?.id;
 
     if (!groupId || !userId) {
       return res.status(400).json({ message: "groupId is required." });
@@ -78,7 +80,7 @@ export const requestToJoinGroup = async (req: Request, res: Response) => {
           </p>
     <p style="font-size: 14px; color: #777;">
       If you are not the admin of this group, please contact Admin immediately or ignore this.
-    </p></div>`,
+    </p>`,
         receiver: admin?.email,
       });
 
@@ -114,12 +116,12 @@ export const requestToJoinGroup = async (req: Request, res: Response) => {
   }
 };
 
-export const approveGroupJoinRequest = async (req: Request, res: Response) => {
+export const approveGroupJoinRequest = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { groupId, userId } = req.body;
     const adminId = req.user?.id;
 
-    if (!groupId || !userId) {
+    if (!groupId || !userId || !adminId) {
       return res
         .status(400)
         .json({ message: "groupId and userId are required." });
@@ -176,7 +178,7 @@ export const approveGroupJoinRequest = async (req: Request, res: Response) => {
           </p>
     <p style="font-size: 14px; color: #777;">
       If you did not request to join this group, please contact Admin immediately or ignore this.
-    </p></div>`,
+    </p>`,
         receiver: member?.email,
       });
 
@@ -212,9 +214,10 @@ export const approveGroupJoinRequest = async (req: Request, res: Response) => {
   }
 };
 
-export const acceptGroupInvitation = async (req: Request, res: Response) => {
+export const acceptGroupInvitation = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { groupId, userId } = req.body;
+    const { groupId } = req.body;
+    const userId = req.user?.id;
 
     if (!groupId || !userId) {
       return res.status(400).json({ message: "groupId is required." });
@@ -265,7 +268,7 @@ export const acceptGroupInvitation = async (req: Request, res: Response) => {
           </p>
     <p style="font-size: 14px; color: #777;">
       If you did send this invitation to join this group, please contact Admin immediately or ignore this.
-    </p></div>`,
+    </p>`,
         receiver: admin?.email,
       });
 
@@ -301,9 +304,9 @@ export const acceptGroupInvitation = async (req: Request, res: Response) => {
   }
 };
 
-export const declineGroupInvitation = async (req: Request, res: Response) => {
+export const declineGroupInvitation = async (req: AuthenticatedRequest, res: Response) => {
   const { groupId } = req.params;
-  const { userId } = req.body;
+  const userId = req.user?.id;
 
   if (!groupId || !userId) {
     return res.status(400).json({
@@ -356,7 +359,7 @@ export const declineGroupInvitation = async (req: Request, res: Response) => {
           </p>
     <p style="font-size: 14px; color: #777;">
       If you did send this invitation to join this group, please contact Admin immediately or ignore this.
-    </p></div>`,
+    </p>`,
         receiver: admin?.email,
       });
 
@@ -392,9 +395,10 @@ export const declineGroupInvitation = async (req: Request, res: Response) => {
   }
 };
 
-export const rejectJoinRequest = async (req: Request, res: Response) => {
+export const rejectJoinRequest = async (req: AuthenticatedRequest, res: Response) => {
   const { groupId } = req.params;
-  const { adminId, userId } = req.body;
+  const { userId } = req.body;
+  const adminId = req.user?.id;
 
   if (!groupId || !adminId || !userId) {
     return res.status(400).json({
@@ -458,7 +462,7 @@ export const rejectJoinRequest = async (req: Request, res: Response) => {
           </p>
     <p style="font-size: 14px; color: #777;">
       If you did send this request to join this group, please ignore this.
-    </p></div>`,
+    </p>`,
         receiver: member?.email,
       });
 

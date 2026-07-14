@@ -4,6 +4,7 @@ import { generateToken, hashPassword, verifyToken } from "../helpers/auth";
 import sendEmail from "../helpers/sendMail";
 import { userStatusTypes } from "../Types/users";
 import prisma from "../helpers/prismaClient";
+import { AuthenticatedRequest } from "../middleware/auth";
 
 interface AuthController {
   login(req: Request, res: Response): Promise<Response>;
@@ -68,9 +69,13 @@ const AuthController: AuthController = {
     }
   },
 
-  changePassword: async (req, res) => {
-    const { userId, pastPassword, password } = req.body;
+  changePassword: async (req: AuthenticatedRequest, res: Response) => {
+    const { pastPassword, password } = req.body;
+    const userId = req.user?.id;
     try {
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       const user = await prisma.user.findUnique({
         where: {
           id: userId,
@@ -116,13 +121,15 @@ const AuthController: AuthController = {
     }
   },
 
-  logout: async (req, res) => {
-    const { userId, token } = req.body;
+  logout: async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user?.id;
     try {
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       const user = await prisma.user.findUnique({
         where: {
           id: userId,
-          token,
         },
       });
       if (!user) {
@@ -211,7 +218,6 @@ const AuthController: AuthController = {
         return res.status(404).json({ message: "User is not found!" });
       }
     } catch (error: any) {
-      console.log(error?.message);
       return res.status(500).json({ error: "Internal Server Error" });
     }
   },
@@ -222,7 +228,7 @@ const AuthController: AuthController = {
       const dataFromToken: any = await verifyToken(token);
       const user = await prisma.user.findUnique({
         where: {
-          email: dataFromToken?.email,
+          id: dataFromToken?.id,
           status: {
             not: userStatusTypes?.DELETED,
           },
@@ -230,6 +236,9 @@ const AuthController: AuthController = {
       });
       if (!user) {
         return res.status(404).json({ error: "User not found" });
+      }
+      if (user.refreshToken !== token) {
+        return res.status(401).json({ error: "Invalid or expired reset token" });
       }
       const hashedPassword = await hashPassword(newPassword);
       await prisma.user.update({
@@ -268,7 +277,6 @@ const AuthController: AuthController = {
 `,
       });
 
-      console.log(email);
       if (email.status === 200) {
         return res.status(201).json({
           message: "Your password has been changed successfully!",
@@ -280,7 +288,6 @@ const AuthController: AuthController = {
         });
       }
     } catch (error: any) {
-      console.log(error?.message);
       return res.status(500).json({ error: "Internal Server Error" });
     }
   },

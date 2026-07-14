@@ -20,27 +20,27 @@ Interactive API documentation is available at `/api/docs` when the server is run
 
 ### Authentication Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/login` | User login |
-| POST | `/api/auth/logout` | User logout |
-| POST | `/api/auth/change-pass` | Change password |
-| POST | `/api/auth/request-link` | Request password reset |
-| POST | `/api/auth/reset-password` | Reset password with token |
+| Method | Endpoint | Description | Rate Limited |
+|--------|----------|-------------|:------------:|
+| POST | `/api/auth/login` | User login | Yes (10/15min) |
+| POST | `/api/auth/logout` | User logout (auth required) | No |
+| POST | `/api/auth/change-pass` | Change password (auth required) | No |
+| POST | `/api/auth/request-link` | Request password reset | Yes (10/15min) |
+| POST | `/api/auth/reset-password` | Reset password with token | Yes (10/15min) |
 
-### User Endpoints
+### User Endpoints (Admin-only routes marked with 🔒)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/users` | Get all users |
-| GET | `/api/users/:userId` | Get user by ID |
-| PUT | `/api/users/:userId` | Update user |
-| DELETE | `/api/users/:userId` | Delete user |
-| POST | `/api/users/profile` | Create user profile |
-| POST | `/api/users/invite` | Invite user |
-| POST | `/api/users/import` | Import users |
-| POST | `/api/users/export/all` | Export all users |
-| POST | `/api/users/role/:userId` | Change user role |
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|--------|
+| GET | `/api/users` | Get all users (excludes passwords/tokens) | Any authenticated user |
+| GET | `/api/users/:userId` | Get user by ID (excludes sensitive fields) | Any authenticated user |
+| PUT | `/api/users/:userId` | Update user | 🔒 Admin only |
+| DELETE | `/api/users/:userId` | Delete user | 🔒 Admin only |
+| POST | `/api/users/profile` | Create user profile | Any authenticated user |
+| POST | `/api/users/invite` | Invite user | 🔒 Admin only |
+| POST | `/api/users/import` | Import users | 🔒 Admin only |
+| POST | `/api/users/export/all` | Export all users | Any authenticated user |
+| POST | `/api/users/role/:userId` | Change user role | 🔒 Admin only |
 
 ### Organization Endpoints
 
@@ -60,6 +60,38 @@ Interactive API documentation is available at `/api/docs` when the server is run
 | GET | `/api/chat/group/all` | Get all groups |
 | POST | `/api/chat/group/create` | Create group |
 | GET | `/api/chat/group/:groupId` | Get group by ID |
+| GET | `/api/chat/group/my` | Get current user's groups |
+| POST | `/api/chat/group/messages/:groupId` | Send group message (auth user as sender) |
+| GET | `/api/chat/group/messages/:groupId` | Get group messages (auth user verified as member) |
+| DELETE | `/api/chat/group/remove-member` | Remove member (body: groupId, userId; admin only) |
+
+---
+
+## Security
+
+### Authentication
+- JWT tokens with 24-hour expiry; payload contains only user `id`
+- **SECRET_KEY is required** — server refuses to start if the env var is missing
+- All authenticated endpoints verify token against DB user status
+- Password reset tokens are validated against the stored `refreshToken` in the database; revoked tokens are rejected
+
+### Authorization (RBAC)
+- `requireAuth` middleware on all `/api/*` routes except login, request-link, reset-password
+- `requireAdmin` middleware on sensitive operations: user delete, update, role change, invite, import
+
+### Rate Limiting
+- Global API rate limiter: 100 requests / 15 min (configurable via env vars)
+- Auth-specific rate limiter: 10 requests / 15 min on login, request-link, and reset-password
+
+### Data Protection
+- User queries exclude `password`, `token`, and `refreshToken` fields from all responses
+- User IDs are server-generated (UUIDs); client-supplied IDs are ignored
+- Group operations (send message, create group, remove member) use the authenticated user's ID from the JWT, not URL params or request body
+- DB credential logging removed
+
+### Known Limitations
+- No input validation library (Zod or similar) — validate inputs at the API boundary before adding untrusted data
+- Socket.IO connections have no auth middleware
 
 ---
 
@@ -94,21 +126,22 @@ npm start
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_HOST` | MySQL database host | - |
-| `DATABASE_PORT` | MySQL port | 3306 |
-| `DATABASE_USER` | Database username | - |
-| `DATABASE_PASSWORD` | Database password | - |
-| `DATABASE_NAME` | Database name | - |
-| `CONNECTION_LIMIT` | Database connection pool size | 20 |
-| `RATE_LIMIT_WINDOW_MS` | Rate limit window (ms) | 900000 (15 min) |
-| `RATE_LIMIT_MAX` | Max requests per window | 100 |
-| `AUTH_RATE_LIMIT_WINDOW_MS` | Auth rate limit window (ms) | 900000 |
-| `AUTH_RATE_LIMIT_MAX` | Max auth requests per window | 10 |
-| `REDIS_URL` | Redis connection URL | redis://localhost:6379 |
-| `GEMINI_KEY` | Google Gemini API key | - |
-| `FRONTEND_URL` | Frontend URL for notifications | - |
+| Variable | Description | Default | Required |
+|----------|-------------|---------|:--------:|
+| `SECRET_KEY` | JWT signing secret | - | **Yes** |
+| `DATABASE_HOST` | MySQL database host | - | Yes |
+| `DATABASE_PORT` | MySQL port | 3306 | No |
+| `DATABASE_USER` | Database username | - | Yes |
+| `DATABASE_PASSWORD` | Database password | - | Yes |
+| `DATABASE_NAME` | Database name | - | Yes |
+| `CONNECTION_LIMIT` | Database connection pool size | 20 | No |
+| `RATE_LIMIT_WINDOW_MS` | Rate limit window (ms) | 900000 (15 min) | No |
+| `RATE_LIMIT_MAX` | Max requests per window | 100 | No |
+| `AUTH_RATE_LIMIT_WINDOW_MS` | Auth rate limit window (ms) | 900000 | No |
+| `AUTH_RATE_LIMIT_MAX` | Max auth requests per window | 10 | No |
+| `REDIS_URL` | Redis connection URL | redis://localhost:6379 | No |
+| `GEMINI_KEY` | Google Gemini API key | - | No |
+| `FRONTEND_URL` | Frontend URL for notifications | - | No |
 
 ---
 

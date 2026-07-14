@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import crypto from "crypto";
 import sendEmail from "../../helpers/sendMail";
 import { generateToken } from "../../helpers/auth";
 import { notificationTypes } from "../notificationController";
@@ -7,6 +8,10 @@ import prisma from "../../helpers/prismaClient";
 
 const CreateUserProfile = async (req: Request, res: Response) => {
   const { user } = req.body;
+
+  if (!user) {
+    return res.status(400).json({ error: "User data is required." });
+  }
 
   const notificationToSend = await prisma.notificationSetup.findFirst({
     where: { usage: notificationTypes.SIGNUP },
@@ -35,10 +40,11 @@ const CreateUserProfile = async (req: Request, res: Response) => {
     }
 
     const refreshToken = generateToken(user);
+    const userId = crypto.randomUUID();
 
     const createdUser = await prisma.user.create({
       data: {
-        id: user?.id,
+        id: userId,
         firstName: user.firstName,
         middleName: user.middleName,
         lastName: user.lastName,
