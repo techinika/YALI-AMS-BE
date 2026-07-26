@@ -4,6 +4,34 @@ import { Prisma } from "@prisma/client";
 import { getUserId } from "../helpers/prisma-context";
 import prisma from "../helpers/prismaClient";
 
+const SENSITIVE_FIELDS = new Set([
+  "password",
+  "refreshToken",
+  "token",
+  "secret",
+  "SECRET_KEY",
+  "EMAIL_PASSWORD",
+  "CLOUDINARY_SECRET",
+]);
+
+function sanitizeArgs(args: any): any {
+  if (!args || typeof args !== "object") return args;
+
+  const sanitized = { ...args };
+
+  if (sanitized.data && typeof sanitized.data === "object") {
+    const cleanData = { ...sanitized.data };
+    for (const key of Object.keys(cleanData)) {
+      if (SENSITIVE_FIELDS.has(key)) {
+        cleanData[key] = "[REDACTED]";
+      }
+    }
+    sanitized.data = cleanData;
+  }
+
+  return sanitized;
+}
+
 export const activityLoggerExtension = Prisma.defineExtension({
   name: "activity-logger",
 
@@ -34,27 +62,27 @@ export const activityLoggerExtension = Prisma.defineExtension({
               where: { id: where.id },
             });
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error("Failed to fetch beforeData for activity log:", e);
+        }
       }
 
-      // Execute the actual operation
       try {
         result = await query(args);
       } catch (err) {
         error = err;
       }
 
-      // Only log mutations, and do NOT log ActivityLog mutations
       if (isMutation && !isActivityLogWrite) {
         try {
           const recordId =
             result?.id || args?.where?.id || args?.data?.id || null;
 
-          // Only log changed fields for update
           let changedFields: Record<string, any> = {};
 
           if (beforeData && args?.data) {
             Object.keys(args.data).forEach((key) => {
+              if (SENSITIVE_FIELDS.has(key)) return;
               if (beforeData[key] !== (args.data as any)[key]) {
                 changedFields[key] = {
                   before: beforeData[key],
@@ -71,7 +99,7 @@ export const activityLoggerExtension = Prisma.defineExtension({
               recordId: recordId ? String(recordId) : null,
               userId: getUserId(),
               details: {
-                args,
+                args: sanitizeArgs(args),
                 changedFields,
                 error: error ? String(error.message ?? error) : null,
               },

@@ -17,7 +17,7 @@ const router = Router();
 
 router.get("/", getAllUsers);
 router.get("/:userId", getUserById);
-router.post("/export/all", exportMembersController);
+router.post("/export/all", requireAdmin, exportMembersController);
 router.post("/invite", requireAdmin, inviteUser);
 router.put("/invite/renew/:userId", requireAdmin, reInviteUser);
 router.post("/profile", CreateUserProfile);

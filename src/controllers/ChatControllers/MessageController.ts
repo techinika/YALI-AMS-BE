@@ -1,12 +1,21 @@
 import prisma from "../../helpers/prismaClient";
+import { AuthenticatedRequest } from "../../middleware/auth";
 
 export const getMessages = async (req: any, res: any) => {
   try {
     const messages = await prisma.message.findMany({
       where: { public: true },
       include: {
-        sender: true,
+        sender: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            profileImage: true,
+          },
+        },
       },
+      orderBy: { createdAt: "asc" },
     });
     res
       .status(200)
@@ -17,9 +26,19 @@ export const getMessages = async (req: any, res: any) => {
   }
 };
 
-export const getPrivateMessages = async (req: any, res: any) => {
+export const getPrivateMessages = async (req: AuthenticatedRequest, res: any) => {
   try {
     const { id, oid } = req.params;
+    const requesterId = req.user?.id;
+
+    if (!requesterId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    if (requesterId !== id && requesterId !== oid) {
+      return res.status(403).json({ error: "You can only view your own private messages" });
+    }
+
     const messages = await prisma.message.findMany({
       where: {
         public: false,
@@ -33,8 +52,22 @@ export const getPrivateMessages = async (req: any, res: any) => {
         ],
       },
       include: {
-        sender: true,
-        receiver: true,
+        sender: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            profileImage: true,
+          },
+        },
+        receiver: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            profileImage: true,
+          },
+        },
       },
     });
     res
@@ -46,16 +79,41 @@ export const getPrivateMessages = async (req: any, res: any) => {
   }
 };
 
-export const getPrivateChats = async (req: any, res: any) => {
+export const getPrivateChats = async (req: AuthenticatedRequest, res: any) => {
   try {
+    const requesterId = req.user?.id;
+    const targetId = req.params.id;
+
+    if (!requesterId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    if (requesterId !== targetId) {
+      return res.status(403).json({ error: "You can only view your own chats" });
+    }
+
     const messages = await prisma.message.findMany({
       where: {
         public: false,
-        OR: [{ senderId: req.params.id }, { receiverId: req.params.id }],
+        OR: [{ senderId: targetId }, { receiverId: targetId }],
       },
       include: {
-        sender: true,
-        receiver: true,
+        sender: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            profileImage: true,
+          },
+        },
+        receiver: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            profileImage: true,
+          },
+        },
       },
     });
 

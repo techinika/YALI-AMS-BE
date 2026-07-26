@@ -14,7 +14,7 @@ router.get("/:userId", getUsersNotifications);
 router.post("/", openNotification);
 router.get("/unopened/:userId", getUnopenedNotifications);
 router.get("/update/setup", getAllNotificationSetups);
-router.get("/update/setup/one", getOneNotificationSetups);
+router.get("/update/setup/one/:usage", getOneNotificationSetups);
 router.put("/update/setup", updateNotificationDetails);
 
 export default router;

@@ -5,6 +5,37 @@ import sendEmail from "../helpers/sendMail";
 import { userStatusTypes } from "../Types/users";
 import prisma from "../helpers/prismaClient";
 import { AuthenticatedRequest } from "../middleware/auth";
+import { z } from "zod";
+
+const PASSWORD_MIN_LENGTH = 8;
+
+const changePasswordSchema = z.object({
+  pastPassword: z.string().min(1, "Current password is required"),
+  password: z
+    .string()
+    .min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters`),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Token is required"),
+  newPassword: z
+    .string()
+    .min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters`),
+});
+
+const loginSchema = z.object({
+  email: z.string().email("Invalid email format"),
+  password: z.string().min(1, "Password is required"),
+});
+
+const requestLinkSchema = z.object({
+  email: z.string().email("Invalid email format"),
+});
+
+const excludeSensitiveFields = (user: any) => {
+  const { password, refreshToken, token, ...safeUser } = user;
+  return safeUser;
+};
 
 interface AuthController {
   login(req: Request, res: Response): Promise<Response>;
@@ -16,7 +47,11 @@ interface AuthController {
 
 const AuthController: AuthController = {
   login: async (req, res) => {
-    const { email, password } = req.body;
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
+    }
+    const { email, password } = parsed.data;
     try {
       const user = await prisma.user.findUnique({
         where: {
@@ -59,7 +94,7 @@ const AuthController: AuthController = {
       if (updatedUser) {
         return res
           .status(200)
-          .json({ status: 200, message: "Login successful", token, user });
+          .json({ status: 200, message: "Login successful", token, user: excludeSensitiveFields(user) });
       } else {
         return res.status(500).json({ status: 500, message: "Login failed" });
       }
@@ -70,7 +105,11 @@ const AuthController: AuthController = {
   },
 
   changePassword: async (req: AuthenticatedRequest, res: Response) => {
-    const { pastPassword, password } = req.body;
+    const parsed = changePasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
+    }
+    const { pastPassword, password } = parsed.data;
     const userId = req.user?.id;
     try {
       if (!userId) {
@@ -154,7 +193,11 @@ const AuthController: AuthController = {
   },
 
   requestLink: async (req, res) => {
-    const { email } = req.body;
+    const parsed = requestLinkSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
+    }
+    const { email } = parsed.data;
     try {
       const user = await prisma.user.findUnique({
         where: {
@@ -223,7 +266,11 @@ const AuthController: AuthController = {
   },
 
   resetPassword: async (req, res) => {
-    const { token, newPassword } = req.body;
+    const parsed = resetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
+    }
+    const { token, newPassword } = parsed.data;
     try {
       const dataFromToken: any = await verifyToken(token);
       const user = await prisma.user.findUnique({

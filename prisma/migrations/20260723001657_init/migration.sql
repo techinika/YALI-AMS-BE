@@ -123,6 +123,11 @@ CREATE TABLE `User` (
 
     UNIQUE INDEX `User_id_key`(`id`),
     UNIQUE INDEX `User_email_key`(`email`),
+    INDEX `User_status_idx`(`status`),
+    INDEX `User_cohortId_idx`(`cohortId`),
+    INDEX `User_trackId_idx`(`trackId`),
+    INDEX `User_genderName_idx`(`genderName`),
+    INDEX `User_roleId_idx`(`roleId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -137,6 +142,9 @@ CREATE TABLE `Message` (
     `updatedAt` DATETIME(3) NOT NULL,
 
     UNIQUE INDEX `Message_id_key`(`id`),
+    INDEX `Message_senderId_idx`(`senderId`),
+    INDEX `Message_receiverId_idx`(`receiverId`),
+    INDEX `Message_createdAt_idx`(`createdAt`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -151,6 +159,8 @@ CREATE TABLE `Notifications` (
     `updatedAt` DATETIME(3) NOT NULL,
 
     UNIQUE INDEX `Notifications_id_key`(`id`),
+    INDEX `Notifications_receiverId_idx`(`receiverId`),
+    INDEX `Notifications_createdAt_idx`(`createdAt`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -227,6 +237,9 @@ CREATE TABLE `Organization_WorkingSector` (
     `updatedAt` DATETIME(3) NOT NULL,
 
     UNIQUE INDEX `Organization_WorkingSector_id_key`(`id`),
+    INDEX `Organization_WorkingSector_userId_idx`(`userId`),
+    INDEX `Organization_WorkingSector_organizationId_idx`(`organizationId`),
+    INDEX `Organization_WorkingSector_workingSectorId_idx`(`workingSectorId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -241,6 +254,7 @@ CREATE TABLE `User_Organization` (
     `updatedAt` DATETIME(3) NOT NULL,
 
     UNIQUE INDEX `User_Organization_id_key`(`id`),
+    INDEX `User_Organization_userId_idx`(`userId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -255,6 +269,79 @@ CREATE TABLE `ActivityLog` (
     `details` JSON NULL,
 
     UNIQUE INDEX `ActivityLog_id_key`(`id`),
+    INDEX `ActivityLog_timestamp_idx`(`timestamp`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `MatchmakingRequest` (
+    `id` VARCHAR(191) NOT NULL,
+    `userId` VARCHAR(191) NOT NULL,
+    `description` VARCHAR(191) NULL,
+    `aiSummary` VARCHAR(191) NULL,
+    `aiNotes` VARCHAR(191) NULL,
+    `aiResponse` VARCHAR(191) NULL,
+    `interests` VARCHAR(191) NOT NULL,
+    `status` VARCHAR(191) NOT NULL DEFAULT 'pending',
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    INDEX `MatchmakingRequest_userId_idx`(`userId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `MatchmakingItem` (
+    `id` VARCHAR(191) NOT NULL,
+    `requestId` VARCHAR(191) NOT NULL,
+    `matchedUserId` VARCHAR(191) NULL,
+    `matchedGroupId` VARCHAR(191) NULL,
+    `matchType` VARCHAR(191) NOT NULL,
+    `score` DOUBLE NULL,
+    `reason` VARCHAR(191) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `MatchmakingItem_requestId_idx`(`requestId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `Group` (
+    `id` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(191) NOT NULL,
+    `description` VARCHAR(191) NOT NULL,
+    `interests` VARCHAR(191) NOT NULL,
+    `createdById` VARCHAR(191) NOT NULL,
+
+    INDEX `Group_createdById_idx`(`createdById`),
+    INDEX `Group_interests_idx`(`interests`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `GroupMember` (
+    `id` VARCHAR(191) NOT NULL,
+    `userId` VARCHAR(191) NOT NULL,
+    `groupId` VARCHAR(191) NOT NULL,
+    `status` VARCHAR(191) NOT NULL DEFAULT 'admin_approval_pending',
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `GroupMember_userId_idx`(`userId`),
+    INDEX `GroupMember_groupId_idx`(`groupId`),
+    INDEX `GroupMember_status_idx`(`status`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `GroupMessage` (
+    `id` VARCHAR(191) NOT NULL,
+    `senderId` VARCHAR(191) NOT NULL,
+    `groupId` VARCHAR(191) NOT NULL,
+    `content` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `GroupMessage_groupId_idx`(`groupId`),
+    INDEX `GroupMessage_createdAt_idx`(`createdAt`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -286,7 +373,7 @@ ALTER TABLE `User` ADD CONSTRAINT `User_residentCountryId_fkey` FOREIGN KEY (`re
 ALTER TABLE `User` ADD CONSTRAINT `User_stateId_fkey` FOREIGN KEY (`stateId`) REFERENCES `State`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `User` ADD CONSTRAINT `User_residentDistrictId_fkey` FOREIGN KEY (`residentDistrictId`) REFERENCES `District`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `User` ADD CONSTRAINT `User_residentDistrictId_fkey` FOREIGN KEY (`residentDistrictId`) REFERENCES `District`(`name`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `User` ADD CONSTRAINT `User_residentSectorId_fkey` FOREIGN KEY (`residentSectorId`) REFERENCES `Sector`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
@@ -335,3 +422,24 @@ ALTER TABLE `User_Organization` ADD CONSTRAINT `User_Organization_organizationId
 
 -- AddForeignKey
 ALTER TABLE `User_Organization` ADD CONSTRAINT `User_Organization_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `MatchmakingRequest` ADD CONSTRAINT `MatchmakingRequest_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `MatchmakingItem` ADD CONSTRAINT `MatchmakingItem_requestId_fkey` FOREIGN KEY (`requestId`) REFERENCES `MatchmakingRequest`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Group` ADD CONSTRAINT `Group_createdById_fkey` FOREIGN KEY (`createdById`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `GroupMember` ADD CONSTRAINT `GroupMember_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `GroupMember` ADD CONSTRAINT `GroupMember_groupId_fkey` FOREIGN KEY (`groupId`) REFERENCES `Group`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `GroupMessage` ADD CONSTRAINT `GroupMessage_senderId_fkey` FOREIGN KEY (`senderId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `GroupMessage` ADD CONSTRAINT `GroupMessage_groupId_fkey` FOREIGN KEY (`groupId`) REFERENCES `Group`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

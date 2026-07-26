@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { subtractDays, subtractMonths } from "../helpers/date";
 import { userStatusTypes } from "../Types/users";
+import { AuthenticatedRequest } from "../middleware/auth";
 import prisma from "../helpers/prismaClient";
 
 export const notificationTypes = {
@@ -59,16 +60,25 @@ export async function generateProfileUpdateNotifications() {
     console.log("Profile update notifications created:", result.count);
   } catch (error) {
     console.error("Error generating profile notifications:", error);
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
-export const getUsersNotifications = async (req: Request, res: Response) => {
+export const getUsersNotifications = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const requesterId = req.user?.id;
+    const targetUserId = req.params.userId;
+
+    if (!requesterId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    if (requesterId !== targetUserId) {
+      return res.status(403).json({ error: "You can only view your own notifications" });
+    }
+
     const notifications = await prisma.notifications.findMany({
       where: {
-        receiverId: req.params.userId,
+        receiverId: targetUserId,
       },
     });
     res.status(200).send({ message: "All notifications", notifications });
@@ -78,11 +88,22 @@ export const getUsersNotifications = async (req: Request, res: Response) => {
   }
 };
 
-export const getUnopenedNotifications = async (req: Request, res: Response) => {
+export const getUnopenedNotifications = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const requesterId = req.user?.id;
+    const targetUserId = req.params.userId;
+
+    if (!requesterId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    if (requesterId !== targetUserId) {
+      return res.status(403).json({ error: "You can only view your own notifications" });
+    }
+
     const notifications = await prisma.notifications.findMany({
       where: {
-        receiverId: req.params.userId,
+        receiverId: targetUserId,
         opened: false,
       },
     });
@@ -158,9 +179,12 @@ export const getAllNotificationSetups = async (req: Request, res: Response) => {
 
 export const getOneNotificationSetups = async (req: Request, res: Response) => {
   try {
-    const { id } = req.body;
+    const { usage } = req.params;
+    if (!usage) {
+      return res.status(400).json({ error: "Usage parameter is required" });
+    }
     const setup = await prisma.notificationSetup.findFirst({
-      where: { id: id },
+      where: { usage: usage },
     });
 
     res.status(200).send({ message: "Notification Setup", data: setup });

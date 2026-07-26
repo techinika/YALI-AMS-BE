@@ -25,12 +25,22 @@ declare global {
 
 const app = express();
 const PORT = process.env.PORT || 7000;
-const HTTP_PORT = process.env.HTTP_PORT || 4500;
 
-const corsOptions = {
-  origin: "*",
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
+  : ["http://localhost:3000"];
+
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   optionsSuccessStatus: 200,
+  credentials: true,
 };
 
 app.use(cors(corsOptions));
@@ -51,24 +61,22 @@ app.use(express.static(path.join(__dirname, "../public")));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-app.use("/api", apiLimiter, route);
-
-app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
 app.use((req: Request, res, next) => {
   prismaContext.run({ userId: req?.user?.id }, () => {
     next();
   });
 });
 
-app.listen(PORT, () => console.log("Server is running on port " + PORT));
+app.use("/api", apiLimiter, route);
+
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 const server = http.createServer(app);
 
 initSockets(server);
 
-server.listen(HTTP_PORT, () => {
-  console.log(`HTTP Server running on port ${HTTP_PORT}`);
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
 
 createAiMatchmakingWorker();

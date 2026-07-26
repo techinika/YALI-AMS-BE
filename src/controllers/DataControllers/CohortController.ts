@@ -29,7 +29,6 @@ export const addCohorts = async (req: Request, res: Response) => {
     }
     const cohort = await prisma.cohort.create({
       data: {
-        id: Math.floor(Math.random() * 10000) + cohorts.length,
         name: req.body.name,
         description: req.body.description,
       },
@@ -48,7 +47,7 @@ export const deleteCohorts = async (req: Request, res: Response) => {
     const cohort = await prisma.cohort.delete({
       where: { id: Number(id) },
     });
-    res.status(201).send({ message: "Cohort", data: cohort });
+    res.status(200).send({ message: "Cohort deleted", data: cohort });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ error: "Failed to delete cohort" });

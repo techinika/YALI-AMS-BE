@@ -22,7 +22,7 @@ export const getRecentActivityLogs = async (req: Request, res: Response) => {
 
     return res.status(500).json({
       error: "Database Error",
-      message: error.message,
+      message: "Failed to fetch activity logs",
     });
   }
 };

@@ -87,7 +87,12 @@ export const inviteUser = async (req: Request, res: Response) => {
 
     return res.status(201).json({
       message: "Invitation sent successfully",
-      user: targetUser,
+      user: {
+        id: targetUser.id,
+        email: targetUser.email,
+        firstName: targetUser.firstName,
+        status: targetUser.status,
+      },
     });
   } catch (err) {
     console.error("Invite user error:", err);
@@ -131,7 +136,12 @@ export const reInviteUser = async (req: Request, res: Response) => {
 
     return res.status(201).json({
       message: "Invitation sent successfully again.",
-      user: existing,
+      user: {
+        id: existing.id,
+        email: existing.email,
+        firstName: existing.firstName,
+        status: existing.status,
+      },
     });
   } catch (err) {
     console.error("Invite user error:", err);

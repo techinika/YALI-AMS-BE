@@ -2,6 +2,8 @@ import { Server, Socket } from "socket.io";
 import prisma from "../helpers/prismaClient";
 
 export const chatSocket = (io: Server, socket: Socket) => {
+  const userId = (socket as any).userId;
+
   socket.on("join-room", ({ room }) => {
     socket.join(room);
     console.log("room joined: ", room);
@@ -9,7 +11,8 @@ export const chatSocket = (io: Server, socket: Socket) => {
 
   socket.on("send-message", async (payload) => {
     try {
-      const { message, senderId, receiverId } = payload;
+      const { message, receiverId } = payload;
+      const senderId = userId;
 
       const isPublic = !receiverId || receiverId === "";
 
@@ -22,15 +25,28 @@ export const chatSocket = (io: Server, socket: Socket) => {
           createdAt: new Date(),
         },
         include: {
-          sender: true,
-          receiver: true,
+          sender: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              profileImage: true,
+            },
+          },
+          receiver: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              profileImage: true,
+            },
+          },
         },
       });
 
       if (!isPublic) {
-        io.to(receiverId).emit("new-message", savedMessage);
-
-        io.to(senderId).emit("new-message", savedMessage);
+        io.to(`user-${receiverId}`).emit("new-message", savedMessage);
+        io.to(`user-${senderId}`).emit("new-message", savedMessage);
       } else {
         io.emit("new-message", savedMessage);
       }

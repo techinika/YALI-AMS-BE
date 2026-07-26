@@ -10,8 +10,14 @@ export const importUsers = async (req: Request, res: Response) => {
     const errors = [];
     const processedUsers = [];
 
-    if (data.length === 0) {
+    const MAX_IMPORT_SIZE = 500;
+
+    if (!data || !Array.isArray(data) || data.length === 0) {
       return res.status(400).send({ message: "The uploaded file is empty." });
+    }
+
+    if (data.length > MAX_IMPORT_SIZE) {
+      return res.status(400).send({ message: `Import limited to ${MAX_IMPORT_SIZE} users per batch. You uploaded ${data.length}.` });
     }
 
     for (const row of data) {

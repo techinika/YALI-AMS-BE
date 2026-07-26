@@ -118,7 +118,7 @@ model User {
   cohort                     Cohort?                      @relation(references: [id], fields: [cohortId])
   trackId                    String?
   track                      Track?                       @relation(fields: [trackId], references: [id])
-  password                   String                       @default("pass")
+  password                   String                       @default("")
   refreshToken               String?                      @db.VarChar(1024)
   token                      String?                      @db.VarChar(1024)
   profileImageId             String?

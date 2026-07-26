@@ -1,4 +1,3 @@
-// Add this small helper — makes everything safe
-export const safeConnect = (id: any) => {
+export const safeConnect = (id: string | number | null | undefined) => {
   return id ? { connect: { id } } : undefined;
 };

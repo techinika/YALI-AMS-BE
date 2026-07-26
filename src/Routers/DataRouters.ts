@@ -25,23 +25,24 @@ import {
   deleteWorkingSector,
   getWorkingSector,
 } from "../controllers/DataControllers/WorkingSector";
+import { requireAdmin } from "../middleware/auth";
 
 const router = Router();
 
 router.get("/genders", getGenders);
 router.get("/tracks", getTracks);
-router.post("/tracks", addTrack);
-router.delete("/track/:id", deleteTracks);
+router.post("/tracks", requireAdmin, addTrack);
+router.delete("/track/:id", requireAdmin, deleteTracks);
 router.get("/working-sectors", getWorkingSector);
-router.post("/working-sectors", addWorkingSector);
-router.delete("/working-sector/:id", deleteWorkingSector);
+router.post("/working-sectors", requireAdmin, addWorkingSector);
+router.delete("/working-sector/:id", requireAdmin, deleteWorkingSector);
 router.get("/countries", getCountries);
 router.get("/states", getStates);
 router.get("/states/:countryId", getStatesByCountry);
 router.get("/districts", getDistricts);
 router.get("/cohorts", getCohorts);
-router.post("/cohort", addCohorts);
-router.delete("/cohort/:id", deleteCohorts);
+router.post("/cohort", requireAdmin, addCohorts);
+router.delete("/cohort/:id", requireAdmin, deleteCohorts);
 router.get("/district/:districtId", getDistrict);
 router.get("/district/sector/:districtId", getSectorsByDistrict);
 router.get("/sectors", getSectors);

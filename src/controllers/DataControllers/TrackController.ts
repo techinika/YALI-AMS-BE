@@ -33,7 +33,7 @@ export const deleteTracks = async (req: Request, res: Response) => {
     const track = await prisma.track.delete({
       where: { id: id },
     });
-    res.status(201).send({ message: "Cohort", data: track });
+    res.status(200).send({ message: "Track deleted", data: track });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ error: "Failed to delete track" });

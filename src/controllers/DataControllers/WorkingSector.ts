@@ -35,7 +35,7 @@ export const deleteWorkingSector = async (req: Request, res: Response) => {
     const sector = await prisma.workingSector.delete({
       where: { id: id },
     });
-    res.status(201).send({ message: "WorkingSector", data: sector });
+    res.status(200).send({ message: "WorkingSector deleted", data: sector });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ error: "Failed to delete working sector" });
