@@ -1,8 +1,22 @@
 // src/middleware/activityLoggerExtension.ts
 
-import { Prisma } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { getUserId } from "../helpers/prisma-context";
 import prisma from "../helpers/prismaClient";
+import "dotenv/config";
+
+const baseAdapter = new PrismaMariaDb({
+  host: process.env.DATABASE_HOST,
+  port: process.env.DATABASE_PORT ? Number(process.env.DATABASE_PORT) : 3306,
+  user: process.env.DATABASE_USER,
+  password: process.env.DATABASE_PASSWORD,
+  database: process.env.DATABASE_NAME,
+  connectionLimit: 5,
+  allowPublicKeyRetrieval: true,
+});
+
+const basePrisma = new PrismaClient({ adapter: baseAdapter });
 
 const SENSITIVE_FIELDS = new Set([
   "password",
@@ -58,7 +72,7 @@ export const activityLoggerExtension = Prisma.defineExtension({
         try {
           const where = (args as any)?.where;
           if (where?.id) {
-            beforeData = await (this as any)[model].findUnique({
+            beforeData = await (basePrisma as any)[model].findUnique({
               where: { id: where.id },
             });
           }

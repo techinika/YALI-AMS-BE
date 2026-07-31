@@ -25,10 +25,10 @@ export const addWStoOrganization = async (req: Request, res: Response) => {
       });
     }
 
-    console.error(prismaError);
+    console.error("addWStoOrganization error:", prismaError);
     return res.status(500).json({
       error: "Database Error",
-      message: prismaError.message,
+      message: "Failed to add working sector to organization",
     });
   }
 };
@@ -57,10 +57,10 @@ export const removeWSfromOrganization = async (req: Request, res: Response) => {
       });
     }
 
-    console.error(error);
+    console.error("removeWSfromOrganization error:", error);
     return res.status(500).json({
       error: "Database Error",
-      message: error.message,
+      message: "Failed to remove working sector from organization",
     });
   }
 };

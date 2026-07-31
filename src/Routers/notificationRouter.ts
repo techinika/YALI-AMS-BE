@@ -7,14 +7,15 @@ import {
   openNotification,
   updateNotificationDetails,
 } from "../controllers/notificationController";
+import { requireAuth, requireAdmin } from "../middleware/auth";
 
 const router = Router();
 
-router.get("/:userId", getUsersNotifications);
-router.post("/", openNotification);
-router.get("/unopened/:userId", getUnopenedNotifications);
-router.get("/update/setup", getAllNotificationSetups);
-router.get("/update/setup/one/:usage", getOneNotificationSetups);
-router.put("/update/setup", updateNotificationDetails);
+router.get("/:userId", requireAuth, getUsersNotifications);
+router.post("/", requireAuth, openNotification);
+router.get("/unopened/:userId", requireAuth, getUnopenedNotifications);
+router.get("/update/setup", requireAdmin, getAllNotificationSetups);
+router.get("/update/setup/one/:usage", requireAuth, getOneNotificationSetups);
+router.put("/update/setup", requireAdmin, updateNotificationDetails);
 
 export default router;

@@ -111,7 +111,6 @@ export const requestToJoinGroup = async (req: AuthenticatedRequest, res: Respons
     console.error("Error requesting to join group:", error);
     return res.status(500).json({
       message: "Internal server error",
-      error: error.message,
     });
   }
 };
@@ -209,7 +208,6 @@ export const approveGroupJoinRequest = async (req: AuthenticatedRequest, res: Re
     console.error("Approve group join error:", error);
     return res.status(500).json({
       message: "Internal server error",
-      error: error.message,
     });
   }
 };
@@ -299,7 +297,6 @@ export const acceptGroupInvitation = async (req: AuthenticatedRequest, res: Resp
     console.error("Accept group invitation error:", error);
     return res.status(500).json({
       message: "Internal server error",
-      error: error.message,
     });
   }
 };
@@ -390,7 +387,6 @@ export const declineGroupInvitation = async (req: AuthenticatedRequest, res: Res
     console.error("Decline invitation error:", error);
     return res.status(500).json({
       message: "Internal server error.",
-      error: error.message,
     });
   }
 };
@@ -493,30 +489,44 @@ export const rejectJoinRequest = async (req: AuthenticatedRequest, res: Response
     console.error("Reject join request error:", error);
     return res.status(500).json({
       message: "Internal server error.",
-      error: error.message,
     });
   }
 };
 
-export const getUsersToInvite = async (req: Request, res: Response) => {
-  const { currentUserId, activeGroupId } = req.params;
-  const usersToInvite = await prisma.user.findMany({
-    where: {
-      id: {
-        not: currentUserId,
-      },
-      groupMembers: {
-        none: {
-          groupId: activeGroupId,
+export const getUsersToInvite = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { currentUserId, activeGroupId } = req.params;
+    const requesterId = req.user?.id;
+
+    if (!requesterId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    if (requesterId !== currentUserId) {
+      return res.status(403).json({ error: "You can only invite for your own account" });
+    }
+
+    const usersToInvite = await prisma.user.findMany({
+      where: {
+        id: {
+          not: currentUserId,
+        },
+        groupMembers: {
+          none: {
+            groupId: activeGroupId,
+          },
         },
       },
-    },
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-    },
-  });
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+      },
+    });
 
-  return res.status(200).json({ data: usersToInvite });
+    return res.status(200).json({ data: usersToInvite });
+  } catch (error: any) {
+    console.error("getUsersToInvite error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
 };

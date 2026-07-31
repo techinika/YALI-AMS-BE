@@ -3,6 +3,7 @@ import IORedis from "ioredis";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { extractJson } from "./extractJSON";
 import prisma from "./prismaClient";
+import { createAndEmitNotification } from "../sockets/notificationEmitter";
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
   maxRetriesPerRequest: null,
@@ -84,6 +85,16 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
             aiResponse: "Gemini API error. " + (err instanceof Error ? err.message : ""),
           },
         });
+        try {
+          await createAndEmitNotification({
+            receiverId: userId,
+            title: "AI Matchmaking Failed",
+            message:
+              "Your matchmaking request could not be completed. Please try again.",
+          });
+        } catch (notifyErr) {
+          console.error("Failed to send matchmaking failure notification:", notifyErr);
+        }
         return { success: false, error: "Gemini API error" };
       }
 
@@ -97,6 +108,16 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
             aiResponse: aiResponseText,
           },
         });
+        try {
+          await createAndEmitNotification({
+            receiverId: userId,
+            title: "AI Matchmaking Failed",
+            message:
+              "Your matchmaking request could not be completed. Please try again.",
+          });
+        } catch (notifyErr) {
+          console.error("Failed to send matchmaking failure notification:", notifyErr);
+        }
         return { success: false, error: "Invalid JSON from AI" };
       }
 
@@ -135,6 +156,16 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
         data: [...userMatchItems, ...groupMatchItems],
       });
 
+      try {
+        await createAndEmitNotification({
+          receiverId: userId,
+          title: "AI Matchmaking Completed",
+          message: `We found ${matchedUsers.length} member matches and ${matchedGroups.length} group matches for you!`,
+        });
+      } catch (notifyErr) {
+        console.error("Failed to send matchmaking completion notification:", notifyErr);
+      }
+
       return {
         success: true,
         requestId,
@@ -146,8 +177,21 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
     { connection, concurrency: 5 }
   );
 
-  worker.on("failed", (job, err) => {
+  worker.on("failed", async (job, err) => {
     console.error(`Job ${job?.id} failed:`, err);
+    try {
+      const userId = job?.data?.userId as string | undefined;
+      if (userId) {
+        await createAndEmitNotification({
+          receiverId: userId,
+          title: "AI Matchmaking Failed",
+          message:
+            "Your matchmaking request could not be completed. Please try again.",
+        });
+      }
+    } catch (notifyErr) {
+      console.error("Failed to send matchmaking failure notification:", notifyErr);
+    }
   });
 
   return worker;

@@ -4,6 +4,7 @@ import { groupSocket } from "./group.sockets";
 import { verifyToken } from "../helpers/auth";
 import prisma from "../helpers/prismaClient";
 import { userStatusTypes } from "../Types/users";
+import { setIO } from "./notificationEmitter";
 
 export const initSockets = (httpServer: any) => {
   const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -63,6 +64,8 @@ export const initSockets = (httpServer: any) => {
       console.log("Socket disconnected:", socket.id);
     });
   });
+
+  setIO(io);
 
   return io;
 };

@@ -3,7 +3,7 @@ import prisma from "../../helpers/prismaClient";
 
 export const getRecentActivityLogs = async (req: Request, res: Response) => {
   try {
-    const limit = Number(req.query.limit) || 5;
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 5));
 
     const logs = await prisma.activityLog.findMany({
       orderBy: {

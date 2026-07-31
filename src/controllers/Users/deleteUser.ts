@@ -28,41 +28,45 @@ export const deleteUser = async (req: Request, res: Response) => {
       },
     });
 
+    const groupIdsToDelete: string[] = [];
+    const groupUpdates: { groupId: string; newOwnerId: string }[] = [];
+
     for (const group of ownedGroups) {
       const nextOwner = group.members[0];
       if (nextOwner) {
-        await prisma.group.update({
-          where: { id: group.id },
-          data: { createdById: nextOwner.userId },
-        });
+        groupUpdates.push({ groupId: group.id, newOwnerId: nextOwner.userId });
       } else {
-        await prisma.groupMember.deleteMany({
-          where: { groupId: group?.id },
-        });
-        await prisma.group.delete({
-          where: { id: group.id },
-        });
+        groupIdsToDelete.push(group.id);
       }
     }
 
-    await prisma.groupMember.deleteMany({
-      where: { userId: userId },
-    });
+    await prisma.$transaction([
+      ...groupUpdates.map((u) =>
+        prisma.group.update({
+          where: { id: u.groupId },
+          data: { createdById: u.newOwnerId },
+        })
+      ),
+      ...(groupIdsToDelete.length > 0
+        ? [
+            prisma.groupMember.deleteMany({
+              where: { groupId: { in: groupIdsToDelete } },
+            }),
+            prisma.group.deleteMany({
+              where: { id: { in: groupIdsToDelete } },
+            }),
+          ]
+        : []),
+      prisma.groupMember.deleteMany({ where: { userId } }),
+      prisma.user.update({
+        where: { id: userId },
+        data: { status: userStatusTypes?.DELETED, updatedAt: new Date() },
+      }),
+    ]);
 
-    const deleted = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        status: userStatusTypes?.DELETED,
-        updatedAt: new Date(),
-      },
-    });
-    if (deleted) {
-      return res.status(200).json({ message: "User deleted successfully" });
-    } else {
-      return res.status(500).json({ message: "User delete failed" });
-    }
+    return res.status(200).json({ message: "User deleted successfully" });
   } catch (error) {
-    console.log(error);
+    console.error("deleteUser error:", error);
     return res.status(500).json({ error: "Internal Server Error" });
   }
 };

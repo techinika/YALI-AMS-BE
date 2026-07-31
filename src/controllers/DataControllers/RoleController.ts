@@ -37,6 +37,7 @@ export const ChangeUserRole = async (req: Request, res: Response) => {
       res.status(404).send({ message: "User is not found!" });
     }
   } catch (error: any) {
-    res.status(500).send({ message: error.message });
+    console.error("ChangeUserRole error:", error);
+    res.status(500).send({ message: "Failed to change user role" });
   }
 };

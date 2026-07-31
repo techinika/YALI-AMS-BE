@@ -8,9 +8,10 @@ Alumni Management System for YALI Rwanda Chapter
 
 - **Backend:** Node.js, Express, Prisma, MySQL  
 - **Frontend:** React, Next.js, Tailwind CSS  
-- **Real-time:** Socket.IO  
+- **Real-time:** Socket.IO (chat, group messages, and per-user notification events)
 - **Queue:** BullMQ + Redis for background job processing
-- **Other:** Node-cron for scheduled tasks  
+- **Other:** Node-cron for scheduled tasks
+- **Cache:** Redis-backed response caching for reference data
 
 ---
 
@@ -102,6 +103,15 @@ Interactive API documentation is available at `/api/docs` when the server is run
 - **N+1 Query Fixes:** Optimized GroupChats and AIMatchmaking controllers to use batch queries instead of sequential calls
 - **Rate Limiting:** API rate limiting middleware protecting endpoints (100 requests/15 min default)
 - **Background Jobs:** AI matchmaking requests are processed asynchronously via BullMQ workers
+- **Redis Response Caching:** Added a `getOrSet()` helper (`src/helpers/cache.ts`) with a 5-minute TTL; all 7 location/reference-data endpoints (countries, states, districts, sectors) are cached and return results ordered by name. Falls back gracefully to the database if Redis is unreachable
+- **Deterministic Ordering:** Location/reference-data queries now use `orderBy: { name: "asc" }` for stable, predictable dropdown ordering
+
+## Real-time Notifications
+
+- **Socket events:** the server emits `new-message`, `new-group-message`, and `notification:new` to per-user rooms (`user-<userId>`)
+- **`src/sockets/notificationEmitter.ts`:** central emitter that creates a `Notifications` row and broadcasts it via `notification:new`; the Socket.IO instance is captured by `setIO` so controllers and BullMQ workers can emit without holding a reference to the server
+- **Matchmaking lifecycle notifications:** "AI Matchmaking Started" on request creation, "AI Matchmaking Completed"/"Failed" from the BullMQ worker (both the in-job failure branches and the `worker.on("failed")` handler)
+- **Profile update cron:** the hourly `generateProfileUpdateNotifications` job now emits a `notification:new` refetch signal to affected users
 
 ---
 

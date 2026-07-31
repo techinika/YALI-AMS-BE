@@ -44,11 +44,11 @@ export const createNewOrganization = async (req: Request, res: Response) => {
       message: "Organization created successfully!",
     });
   } catch (error: any) {
-    console.error(error);
+    console.error("createOrganization error:", error);
 
     return res.status(500).json({
       error: "Database Error",
-      message: error.message,
+      message: "Failed to create organization",
     });
   }
 };

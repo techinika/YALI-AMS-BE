@@ -1,12 +1,12 @@
 {
   "name": "amsbackend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Alumni Management System for YALI Rwanda Chapter Backend Codebase",
   "main": "src/index.ts",
   "scripts": {
     "build:clean": "rm -f -R dist",
     "build": "npm run build:clean && tsc",
-    "dev": "nodemon src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "start": "node dist/src/index.js",
     "migrate": "prisma migrate",
     "migrate:dev": "prisma migrate dev --name init",
@@ -43,6 +43,7 @@
     "express-fileupload": "^1.5.2",
     "express-rate-limit": "^8.6.0",
     "handlebars": "^4.7.9",
+    "helmet": "^8.3.0",
     "http": "^0.0.1-security",
     "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.3",
@@ -67,6 +68,7 @@
     "@types/uuid": "^11.0.0",
     "nodemon": "^3.1.14",
     "prisma": "^7.8.0",
-    "typescript": "^7.0.2"
+    "tsx": "^4.23.1",
+    "typescript": "^6.0.3"
   }
 }

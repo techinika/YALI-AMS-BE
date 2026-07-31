@@ -58,54 +58,47 @@ export const createGroup = async (req: AuthenticatedRequest, res: Response) => {
         skipDuplicates: true,
       });
 
-      const memberIds = newMembers.map((m) => m.userId);
+      const memberUserIds = newMembers.map((m) => m.userId);
       const members = await prisma.user.findMany({
-        where: { id: { in: memberIds } },
+        where: { id: { in: memberUserIds } },
         select: { id: true, firstName: true, email: true },
       });
 
       const memberMap = new Map(members.map((m) => [m.id, m]));
 
-      for (const m of newMembers) {
-        const member = memberMap.get(m.userId);
-        if (member) {
-          await sendEmail({
-            subject: "You have been invited to join a group on YALI AMS!",
-            name: member.firstName,
-            message: `<p>
-             You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.
-          </p>
-          <p>
-            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
-              Review Invitation
-            </a>
-          </p>
-    <p style="font-size: 14px; color: #777;">
-      If you do not want to join this group, please ignore this.
-    </p>`,
-            receiver: member.email,
-          });
-
-          const notification = {
+      const notificationsData = newMembers
+        .map((m) => {
+          const member = memberMap.get(m.userId);
+          if (!member) return null;
+          return {
             title: "You have been invited to join a group on YALI AMS!",
-            message: `<p>
-           You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.
-          </p>
-          <p>
-            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
-              Review Invitation
-            </a>
-          </p>`,
-            receiverId: m?.userId,
+            message: `<p>You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.</p><p><a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">Review Invitation</a></p>`,
+            receiverId: m.userId,
             opened: false,
             createdAt: new Date(),
           };
+        })
+        .filter(Boolean) as any[];
 
-          await prisma.notifications.create({
-            data: notification,
-          });
-        }
+      if (notificationsData.length > 0) {
+        await prisma.notifications.createMany({
+          data: notificationsData,
+          skipDuplicates: true,
+        });
       }
+
+      await Promise.all(
+        newMembers.map((m) => {
+          const member = memberMap.get(m.userId);
+          if (!member) return Promise.resolve();
+          return sendEmail({
+            subject: "You have been invited to join a group on YALI AMS!",
+            name: member.firstName,
+            message: `<p>You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.</p><p><a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">Review Invitation</a></p><p style="font-size: 14px; color: #777;">If you do not want to join this group, please ignore this.</p>`,
+            receiver: member.email,
+          });
+        })
+      );
     }
 
     return res.status(201).json({
@@ -116,7 +109,7 @@ export const createGroup = async (req: AuthenticatedRequest, res: Response) => {
     console.error("Create group error:", err);
     return res
       .status(500)
-      .json({ message: "Server error", error: err.message });
+      .json({ message: "Server error" });
   }
 };
 

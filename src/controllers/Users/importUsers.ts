@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { generateToken } from "../../helpers/auth";
+import { generateResetToken } from "../../helpers/auth";
 import sendEmail from "../../helpers/sendMail";
 import { userStatusTypes } from "../../Types/users";
 import prisma from "../../helpers/prismaClient";
@@ -110,7 +110,7 @@ export const importUsers = async (req: Request, res: Response) => {
           roleId: "12",
         };
 
-        const refreshToken = generateToken(user);
+        const refreshToken = generateResetToken(user);
 
         const [OFWS, OEWS, EC, FC, UC, cohort, track, district, sector, state] =
           await Promise.all([
@@ -303,9 +303,17 @@ export const importUsers = async (req: Request, res: Response) => {
       }
     }
 
+    const safeUsers = processedUsers.map((u: any) => ({
+      id: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      status: u.status,
+    }));
+
     return res.status(201).send({
       message: "Users uploaded and processed successfully!",
-      processedUsers,
+      processedUsers: safeUsers,
       errors,
     });
   } catch (error: any) {

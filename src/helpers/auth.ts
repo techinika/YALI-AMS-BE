@@ -49,14 +49,18 @@ export const passwordCompare = async (
   return bcrypt.compare(password, hashedPass);
 };
 
-export const generateToken = (user: any): string => {
+export const generateToken = (user: any, expiresIn: string = "24h"): string => {
   const payload = {
     id: user?.id,
   };
 
   return jwt.sign(payload, secret, {
-    expiresIn: "24h",
+    expiresIn: expiresIn as any,
   });
+};
+
+export const generateResetToken = (user: any): string => {
+  return generateToken(user, "1h");
 };
 
 export const verifyToken = (token: string) => {

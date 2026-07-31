@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
-import { generateToken, hashPassword, verifyToken } from "../helpers/auth";
+import { generateToken, generateResetToken, hashPassword, verifyToken } from "../helpers/auth";
 import sendEmail from "../helpers/sendMail";
 import { userStatusTypes } from "../Types/users";
 import prisma from "../helpers/prismaClient";
@@ -213,7 +213,7 @@ const AuthController: AuthController = {
         },
       });
       if (user) {
-        const refreshToken = await generateToken(user);
+        const refreshToken = generateResetToken(user);
         const updatedUser = await prisma.user.update({
           where: {
             id: user.id,
@@ -261,6 +261,7 @@ const AuthController: AuthController = {
         return res.status(404).json({ message: "User is not found!" });
       }
     } catch (error: any) {
+      console.error("requestLink error:", error);
       return res.status(500).json({ error: "Internal Server Error" });
     }
   },
