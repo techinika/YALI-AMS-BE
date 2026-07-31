@@ -66,6 +66,42 @@ Interactive API documentation is available at `/api/docs` when the server is run
 | GET | `/api/chat/group/messages/:groupId` | Get group messages (auth user verified as member) |
 | DELETE | `/api/chat/group/remove-member` | Remove member (body: groupId, userId; admin only) |
 
+### Matchmaking Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/matchmaking/ai` | Submit an AI matchmaking request (processed asynchronously by BullMQ) |
+| GET | `/api/matchmaking/history` | List the current user's past matchmaking requests |
+| GET | `/api/matchmaking/status/:requestId` | Poll the status and matches of a request |
+
+### Notification Endpoints
+
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|--------|
+| GET | `/api/notification/:userId` | Get a user's notifications | Owner only |
+| GET | `/api/notification/unopened/:userId` | Get a user's unopened notifications | Owner only |
+| POST | `/api/notification` | Mark a notification as opened (body: `id`) | Owner only |
+| GET | `/api/notification/update/setup` | List notification templates | 🔒 Admin only |
+| GET | `/api/notification/update/setup/one/:usage` | Get a notification template by usage | 🔒 Admin only |
+| PUT | `/api/notification/update/setup` | Update a notification template | 🔒 Admin only |
+
+### Reference-Data Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/data/genders` | List genders (cached) |
+| GET | `/api/data/countries` | List countries (cached) |
+| GET | `/api/data/states` | List states (cached) |
+| GET | `/api/data/states/:countryId` | List states for a country (cached) |
+| GET | `/api/data/districts` | List districts (cached) |
+| GET | `/api/data/district/:districtId` | Get a district (cached) |
+| GET | `/api/data/district/sector/:districtId` | List sectors for a district (cached) |
+| GET | `/api/data/sectors` | List sectors (cached) |
+| GET | `/api/data/sector/:sectorId` | Get a sector (cached) |
+| GET | `/api/data/tracks` | List tracks |
+| GET | `/api/data/working-sectors` | List working sectors |
+| GET | `/api/data/cohorts` | List cohorts |
+
 ---
 
 ## Security
@@ -114,6 +150,17 @@ Interactive API documentation is available at `/api/docs` when the server is run
 - **Profile update cron:** the hourly `generateProfileUpdateNotifications` job now emits a `notification:new` refetch signal to affected users
 
 ---
+
+## Database Migrations
+
+Prisma migrations live in `prisma/migrations/`:
+
+- `20260723001657_init` — baseline schema, including `MatchmakingRequest` and `MatchmakingItem` tables
+- `20260731181755_init` — adds `MatchmakingItem` foreign keys to `User`/`Group`, indexes on `ActivityLog`, `State`, and `Organization`, and sets the `user.password` default to `''`
+
+> **Note:** The `Organization_addedById` index rename is emitted as a RedefineIndex step. Because MySQL/MariaDB cannot `DROP INDEX` an index that backs a foreign key (error 1091), the migration drops the foreign key, creates the new index, then re-adds the foreign key constraint.
+
+> **Note:** The `migrate:dev` npm script passes `--name init`. Use `npm run migrate:noinit` (plain `prisma migrate dev`) for subsequent schema changes, or run `npx prisma migrate dev` directly.
 
 ## Installation
 
