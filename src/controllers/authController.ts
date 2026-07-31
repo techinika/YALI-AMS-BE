@@ -273,7 +273,15 @@ const AuthController: AuthController = {
     }
     const { token, newPassword } = parsed.data;
     try {
-      const dataFromToken: any = await verifyToken(token);
+      let dataFromToken: any;
+      try {
+        dataFromToken = await verifyToken(token);
+      } catch (err) {
+        return res.status(401).json({ error: "Invalid or expired reset token" });
+      }
+      if (!dataFromToken?.id) {
+        return res.status(401).json({ error: "Invalid or expired reset token" });
+      }
       const user = await prisma.user.findUnique({
         where: {
           id: dataFromToken?.id,

@@ -110,8 +110,6 @@ export const importUsers = async (req: Request, res: Response) => {
           roleId: "12",
         };
 
-        const refreshToken = generateResetToken(user);
-
         const [OFWS, OEWS, EC, FC, UC, cohort, track, district, sector, state] =
           await Promise.all([
             prisma.workingSector.findFirst({
@@ -219,13 +217,19 @@ export const importUsers = async (req: Request, res: Response) => {
               },
             },
             status: userStatusTypes?.INACTIVE,
-            refreshToken: refreshToken,
             facebook: user?.facebook,
             instagram: user?.instagram,
             linkedin: user?.linkedin,
             twitter: user?.twitter,
             createdAt: new Date(),
           },
+        });
+
+        const refreshToken = generateResetToken(US);
+        US.refreshToken = refreshToken;
+        await prisma.user.update({
+          where: { id: US.id },
+          data: { refreshToken },
         });
 
         processedUsers.push(US);

@@ -9,7 +9,13 @@ export const createMatchmakingRequest = async (req: AuthenticatedRequest, res: R
   const userId = req.user?.id;
   const { interests, description } = req.body;
 
-  if (!userId || !interests) {
+  const interestsText = Array.isArray(interests)
+    ? interests.join(", ")
+    : typeof interests === "string"
+      ? interests
+      : "";
+
+  if (!userId || !interestsText.trim()) {
     return res.status(400).json({
       message: "interests is required. userId is taken from your session.",
     });
@@ -45,7 +51,7 @@ export const createMatchmakingRequest = async (req: AuthenticatedRequest, res: R
     const requestRecord = await prisma.matchmakingRequest.create({
       data: {
         userId,
-        interests,
+        interests: interestsText,
         description:
           description ??
           "No description provided. Please use only interests provided to find matching users.",
@@ -56,7 +62,7 @@ export const createMatchmakingRequest = async (req: AuthenticatedRequest, res: R
     await aiMatchmakingQueue.add("process-matchmaking", {
       requestId: requestRecord.id,
       userId,
-      interests,
+      interests: interestsText,
       description:
         description ??
         "No description provided. Please use only interests provided to find matching users.",
