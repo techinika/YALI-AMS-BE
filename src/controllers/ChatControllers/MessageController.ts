@@ -169,6 +169,9 @@ export const sendMessage = async (req: AuthenticatedRequest, res: any) => {
         },
       });
     }
+    if (!message) {
+      return res.status(500).json({ error: "Failed to create message" });
+    }
 
     res.status(201).send({ message: "Message Sent", data: message });
   } catch (error) {
