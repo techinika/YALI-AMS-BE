@@ -6,11 +6,12 @@ Alumni Management System for YALI Rwanda Chapter
 
 ## Tech Stack
 
-- **Backend:** Node.js, Express, Prisma, MySQL  
+- **Backend:** Node.js, Express, Prisma (MySQL/MariaDB)  
 - **Frontend:** React, Next.js, Tailwind CSS  
-- **Real-time:** Socket.IO  
+- **Real-time:** Socket.IO (chat, group messages, and per-user notification events)
 - **Queue:** BullMQ + Redis for background job processing
-- **Other:** Node-cron for scheduled tasks  
+- **Other:** Node-cron for scheduled tasks
+- **Cache:** Redis-backed response caching for reference data
 
 ---
 
@@ -20,27 +21,27 @@ Interactive API documentation is available at `/api/docs` when the server is run
 
 ### Authentication Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/login` | User login |
-| POST | `/api/auth/logout` | User logout |
-| POST | `/api/auth/change-pass` | Change password |
-| POST | `/api/auth/request-link` | Request password reset |
-| POST | `/api/auth/reset-password` | Reset password with token |
+| Method | Endpoint | Description | Rate Limited |
+|--------|----------|-------------|:------------:|
+| POST | `/api/auth/login` | User login | Yes (10/15min) |
+| POST | `/api/auth/logout` | User logout (auth required) | No |
+| POST | `/api/auth/change-pass` | Change password (auth required) | No |
+| POST | `/api/auth/request-link` | Request password reset | Yes (10/15min) |
+| POST | `/api/auth/reset-password` | Reset password with token | Yes (10/15min) |
 
-### User Endpoints
+### User Endpoints (Admin-only routes marked with 🔒)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/users` | Get all users |
-| GET | `/api/users/:userId` | Get user by ID |
-| PUT | `/api/users/:userId` | Update user |
-| DELETE | `/api/users/:userId` | Delete user |
-| POST | `/api/users/profile` | Create user profile |
-| POST | `/api/users/invite` | Invite user |
-| POST | `/api/users/import` | Import users |
-| POST | `/api/users/export/all` | Export all users |
-| POST | `/api/users/role/:userId` | Change user role |
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|--------|
+| GET | `/api/users` | Get all users (excludes passwords/tokens) | Any authenticated user |
+| GET | `/api/users/:userId` | Get user by ID (excludes sensitive fields) | Any authenticated user |
+| PUT | `/api/users/:userId` | Update user | 🔒 Admin only |
+| DELETE | `/api/users/:userId` | Delete user | 🔒 Admin only |
+| POST | `/api/users/profile` | Create user profile | Any authenticated user |
+| POST | `/api/users/invite` | Invite user | 🔒 Admin only |
+| POST | `/api/users/import` | Import users | 🔒 Admin only |
+| POST | `/api/users/export/all` | Export all users | Any authenticated user |
+| POST | `/api/users/role/:userId` | Change user role | 🔒 Admin only |
 
 ### Organization Endpoints
 
@@ -60,6 +61,73 @@ Interactive API documentation is available at `/api/docs` when the server is run
 | GET | `/api/chat/group/all` | Get all groups |
 | POST | `/api/chat/group/create` | Create group |
 | GET | `/api/chat/group/:groupId` | Get group by ID |
+| GET | `/api/chat/group/my` | Get current user's groups |
+| POST | `/api/chat/group/messages/:groupId` | Send group message (auth user as sender) |
+| GET | `/api/chat/group/messages/:groupId` | Get group messages (auth user verified as member) |
+| DELETE | `/api/chat/group/remove-member` | Remove member (body: groupId, userId; admin only) |
+
+### Matchmaking Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/matchmaking/ai` | Submit an AI matchmaking request (processed asynchronously by BullMQ) |
+| GET | `/api/matchmaking/history` | List the current user's past matchmaking requests |
+| GET | `/api/matchmaking/status/:requestId` | Poll the status and matches of a request |
+
+### Notification Endpoints
+
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|--------|
+| GET | `/api/notification/:userId` | Get a user's notifications | Owner only |
+| GET | `/api/notification/unopened/:userId` | Get a user's unopened notifications | Owner only |
+| POST | `/api/notification` | Mark a notification as opened (body: `id`) | Owner only |
+| GET | `/api/notification/update/setup` | List notification templates | 🔒 Admin only |
+| GET | `/api/notification/update/setup/one/:usage` | Get a notification template by usage | 🔒 Admin only |
+| PUT | `/api/notification/update/setup` | Update a notification template | 🔒 Admin only |
+
+### Reference-Data Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/data/genders` | List genders (cached) |
+| GET | `/api/data/countries` | List countries (cached) |
+| GET | `/api/data/states` | List states (cached) |
+| GET | `/api/data/states/:countryId` | List states for a country (cached) |
+| GET | `/api/data/districts` | List districts (cached) |
+| GET | `/api/data/district/:districtId` | Get a district (cached) |
+| GET | `/api/data/district/sector/:districtId` | List sectors for a district (cached) |
+| GET | `/api/data/sectors` | List sectors (cached) |
+| GET | `/api/data/sector/:sectorId` | Get a sector (cached) |
+| GET | `/api/data/tracks` | List tracks |
+| GET | `/api/data/working-sectors` | List working sectors |
+| GET | `/api/data/cohorts` | List cohorts |
+
+---
+
+## Security
+
+### Authentication
+- JWT tokens with 24-hour expiry; payload contains only user `id`
+- **SECRET_KEY is required** — server refuses to start if the env var is missing
+- All authenticated endpoints verify token against DB user status
+- Password reset tokens are validated against the stored `refreshToken` in the database; revoked tokens are rejected
+
+### Authorization (RBAC)
+- `requireAuth` middleware on all `/api/*` routes except login, request-link, reset-password
+- `requireAdmin` middleware on sensitive operations: user delete, update, role change, invite, import
+
+### Rate Limiting
+- Global API rate limiter: 100 requests / 15 min (configurable via env vars)
+- Auth-specific rate limiter: 10 requests / 15 min on login, request-link, and reset-password
+
+### Data Protection
+- User queries exclude `password`, `token`, and `refreshToken` fields from all responses
+- User IDs are server-generated (UUIDs); client-supplied IDs are ignored
+- Group operations (send message, create group, remove member) use the authenticated user's ID from the JWT, not URL params or request body
+- DB credential logging removed
+
+### Known Limitations
+- Socket.IO connections have no auth middleware
 
 ---
 
@@ -70,8 +138,36 @@ Interactive API documentation is available at `/api/docs` when the server is run
 - **N+1 Query Fixes:** Optimized GroupChats and AIMatchmaking controllers to use batch queries instead of sequential calls
 - **Rate Limiting:** API rate limiting middleware protecting endpoints (100 requests/15 min default)
 - **Background Jobs:** AI matchmaking requests are processed asynchronously via BullMQ workers
+- **Redis Response Caching:** Added a `getOrSet()` helper (`src/helpers/cache.ts`) with a 5-minute TTL; all 7 location/reference-data endpoints (countries, states, districts, sectors) are cached and return results ordered by name. Falls back gracefully to the database if Redis is unreachable
+- **Deterministic Ordering:** Location/reference-data queries now use `orderBy: { name: "asc" }` for stable, predictable dropdown ordering
+
+## Real-time Notifications
+
+- **Socket events:** the server emits `new-message`, `new-group-message`, and `notification:new` to per-user rooms (`user-<userId>`)
+- **`src/sockets/notificationEmitter.ts`:** central emitter that creates a `Notifications` row and broadcasts it via `notification:new`; the Socket.IO instance is captured by `setIO` so controllers and BullMQ workers can emit without holding a reference to the server
+- **Matchmaking lifecycle notifications:** "AI Matchmaking Started" on request creation, "AI Matchmaking Completed"/"Failed" from the BullMQ worker (both the in-job failure branches and the `worker.on("failed")` handler)
+- **Profile update cron:** the hourly `generateProfileUpdateNotifications` job now emits a `notification:new` refetch signal to affected users
 
 ---
+
+## Database Migrations
+
+Prisma migrations live in `prisma/migrations/`:
+
+- `20260723001657_init` — baseline schema, including `MatchmakingRequest` and `MatchmakingItem` tables
+- `20260731181755_init` — adds `MatchmakingItem` foreign keys to `User`/`Group`, indexes on `ActivityLog`, `State`, and `Organization`, and sets the `user.password` default to `''`
+
+> **Note:** The `Organization_addedById` index rename is emitted as a RedefineIndex step. Because MySQL/MariaDB cannot `DROP INDEX` an index that backs a foreign key (error 1091), the migration drops the foreign key, creates the new index, then re-adds the foreign key constraint.
+
+> **Note (case-sensitive filesystems):** On Linux MySQL/MariaDB (`lower_case_table_names=0`), `20260731181755_init` initially failed because it referenced tables as `user`/`organization` while they are created as `User`/`Organization`. The migration file was corrected to use the exact table case. If you run `migrate deploy` on a fresh database and hit the same error, apply the corrected SQL and mark the migration resolved.
+
+> **Note:** The `migrate:dev` npm script passes `--name init`. Use `npm run migrate:noinit` (plain `prisma migrate dev`) for subsequent schema changes, or run `npx prisma migrate dev` directly.
+
+## Prerequisites
+
+- Node.js 18+
+- MySQL or MariaDB 10.6+ (the app uses the `@prisma/adapter-mariadb` driver)
+- Redis (required for BullMQ background jobs and response caching)
 
 ## Installation
 
@@ -81,12 +177,19 @@ npm install
 
 # Setup environment variables
 cp .env.example .env
-# Edit .env with your database and Redis credentials
+# Edit .env with your database and Redis credentials (root password, DB name, etc.)
 
 # Run database migrations
 npx prisma migrate deploy
 
-# Start the server
+# Seed the database with reference data (genders, cohorts, roles, districts, sectors, countries, states, etc.)
+npm run seed
+
+# Start the server in development (hot reload via tsx watch)
+npm run dev
+
+# Or build and start for production
+npm run build
 npm start
 ```
 
@@ -94,21 +197,54 @@ npm start
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_HOST` | MySQL database host | - |
-| `DATABASE_PORT` | MySQL port | 3306 |
-| `DATABASE_USER` | Database username | - |
-| `DATABASE_PASSWORD` | Database password | - |
-| `DATABASE_NAME` | Database name | - |
-| `CONNECTION_LIMIT` | Database connection pool size | 20 |
-| `RATE_LIMIT_WINDOW_MS` | Rate limit window (ms) | 900000 (15 min) |
-| `RATE_LIMIT_MAX` | Max requests per window | 100 |
-| `AUTH_RATE_LIMIT_WINDOW_MS` | Auth rate limit window (ms) | 900000 |
-| `AUTH_RATE_LIMIT_MAX` | Max auth requests per window | 10 |
-| `REDIS_URL` | Redis connection URL | redis://localhost:6379 |
-| `GEMINI_KEY` | Google Gemini API key | - |
-| `FRONTEND_URL` | Frontend URL for notifications | - |
+| Variable | Description | Default | Required |
+|----------|-------------|---------|:--------:|
+| `PORT` | HTTP API server port | 9000 | No |
+| `HTTP_PORT` | Socket.IO server port | 4500 | No |
+| `SECRET_KEY` | JWT signing secret (use a secure 64+ char random string for production) | - | **Yes** |
+| `DATABASE_URL` | Prisma CLI connection string (MySQL) | - | Yes |
+| `DATABASE_HOST` | MySQL/MariaDB host | 127.0.0.1 | Yes |
+| `DATABASE_PORT` | MySQL/MariaDB port | 3306 | No |
+| `DATABASE_USER` | Database username | - | Yes |
+| `DATABASE_PASSWORD` | Database password | - | Yes |
+| `DATABASE_NAME` | Database name | - | Yes |
+| `CONNECTION_LIMIT` | Database connection pool size | 100 | No |
+| `EMAIL_HOST` | SMTP host for outgoing email | - | No |
+| `EMAIL_PORT` | SMTP port | 465 | No |
+| `EMAIL_USERNAME` | SMTP username | - | No |
+| `EMAIL_PASSWORD` | SMTP password | - | No |
+| `CLOUDINARY_NAME` | Cloudinary cloud name | - | No |
+| `CLOUDINARY_KEY` | Cloudinary API key | - | No |
+| `CLOUDINARY_SECRET` | Cloudinary API secret | - | No |
+| `GEMINI_KEY` | Google Gemini API key | - | No |
+| `REDIS_URL` | Redis connection URL | redis://localhost:6379 | No |
+| `FRONTEND_URL` | Frontend URL for notification links | - | No |
+| `ALLOWED_ORIGINS` | Comma-separated CORS origins (or `*` for development only) | - | No |
+| `RATE_LIMIT_WINDOW_MS` | Rate limit window (ms) | 900000 (15 min) | No |
+| `RATE_LIMIT_MAX` | Max requests per window | 100 | No |
+| `AUTH_RATE_LIMIT_WINDOW_MS` | Auth rate limit window (ms) | 900000 | No |
+| `AUTH_RATE_LIMIT_MAX` | Max auth requests per window | 10 | No |
+
+---
+
+## Redis
+
+Redis powers two features: **BullMQ** background jobs (AI matchmaking) and **response caching** for reference data (`src/helpers/cache.ts`, 5-minute TTL). The app falls back to the database gracefully if Redis is unreachable, so the server still boots without it — but caching and queued jobs are disabled.
+
+Quick setup on Ubuntu/Debian:
+
+```bash
+sudo apt update
+sudo apt install -y redis-server
+
+# Verify it is running
+redis-cli ping   # -> PONG
+
+# Optional: enable auto-start on boot
+sudo systemctl enable redis-server
+```
+
+Redis binds to `127.0.0.1:6379` by default, which matches the `REDIS_URL` default (`redis://localhost:6379`). For production, secure Redis with a password (`requirepass` in `/etc/redis/redis.conf`) and point `REDIS_URL` at it, e.g. `redis://:yourpassword@127.0.0.1:6379`.
 
 ---
 

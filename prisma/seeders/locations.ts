@@ -8,7 +8,7 @@ const cellData: any[] = [];
 const villageData: any[] = [];
 
 for (const province of provinces) {
-  const districts = rwanda.Districts(province) ?? [];
+  const districts = rwanda.Districts({ provinces: province }) ?? [];
 
   for (const [k, district] of districts.entries()) {
     const districtId = `${province}-${k + 1}`;
@@ -18,7 +18,7 @@ for (const province of provinces) {
       createdAt: new Date(),
     });
 
-    const sectors = rwanda.Sectors(province, district) ?? [];
+    const sectors = rwanda.Sectors({ province, district }) ?? [];
 
     for (const [j, sector] of sectors.entries()) {
       const sectorId = `${districtId}-${j + 1}`;

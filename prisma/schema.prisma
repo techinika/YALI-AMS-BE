@@ -41,6 +41,8 @@ model State {
   updatedAt    DateTime       @updatedAt
   User         User[]
   Organization Organization[]
+
+  @@index([countryCode])
 }
 
 model District {
@@ -84,6 +86,8 @@ model Organization {
   userOrganizations          User_Organization[]
   workingSector              WorkingSector?               @relation(fields: [workingSectorId], references: [id])
   workingSectorId            String?
+
+  @@index([addedById])
 }
 
 model User {
@@ -118,7 +122,7 @@ model User {
   cohort                     Cohort?                      @relation(references: [id], fields: [cohortId])
   trackId                    String?
   track                      Track?                       @relation(fields: [trackId], references: [id])
-  password                   String                       @default("pass")
+  password                   String                       @default("")
   refreshToken               String?                      @db.VarChar(1024)
   token                      String?                      @db.VarChar(1024)
   profileImageId             String?
@@ -134,6 +138,7 @@ model User {
   userOrganizations          User_Organization[]
   organizations              Organization[]
   matchmakingRequests        MatchmakingRequest[]
+  matchmakingItems           MatchmakingItem[]
   groupMembers               GroupMember[]
   groupMessages              GroupMessage[]
   groups                     Group[]
@@ -262,6 +267,8 @@ model ActivityLog {
   details   Json?
 
   @@index([timestamp])
+  @@index([userId])
+  @@index([model])
 }
 
 model MatchmakingRequest {
@@ -292,6 +299,9 @@ model MatchmakingItem {
   matchedUserId  String?
   matchedGroupId String?
 
+  matchedUser  User?  @relation(fields: [matchedUserId], references: [id])
+  matchedGroup Group? @relation(fields: [matchedGroupId], references: [id])
+
   matchType String // "user" | "group"
   score     Float?
   reason    String?
@@ -310,6 +320,7 @@ model Group {
   createdBy     User           @relation(fields: [createdById], references: [id])
   members       GroupMember[]
   groupMessages GroupMessage[]
+  matchmakingItems MatchmakingItem[]
 
   @@index([createdById])
   @@index([interests])

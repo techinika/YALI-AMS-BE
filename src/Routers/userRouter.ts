@@ -11,20 +11,21 @@ import { getAllUsers, getUserById } from "../controllers/Users/getUsers";
 import { deleteUser } from "../controllers/Users/deleteUser";
 import { importUsers } from "../controllers/Users/importUsers";
 import { exportMembersController } from "../controllers/Users/exportUsers";
+import { requireAdmin } from "../middleware/auth";
 
 const router = Router();
 
 router.get("/", getAllUsers);
 router.get("/:userId", getUserById);
-router.post("/export/all", exportMembersController);
-router.post("/invite", inviteUser);
-router.put("/invite/renew/:userId", reInviteUser);
+router.post("/export/all", requireAdmin, exportMembersController);
+router.post("/invite", requireAdmin, inviteUser);
+router.put("/invite/renew/:userId", requireAdmin, reInviteUser);
 router.post("/profile", CreateUserProfile);
 router.post("/org/add", addUserOrganization);
 router.delete("/org/remove", removeUserOrganization);
-router.post("/import", importUsers);
-router.put("/:userId", updateUser);
-router.delete("/:userId", deleteUser);
-router.post("/role/:userId", ChangeUserRole);
+router.post("/import", requireAdmin, importUsers);
+router.put("/:userId", requireAdmin, updateUser);
+router.delete("/:userId", requireAdmin, deleteUser);
+router.post("/role/:userId", requireAdmin, ChangeUserRole);
 
 export default router;

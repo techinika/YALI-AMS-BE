@@ -1,13 +1,14 @@
 import { Server, Socket } from "socket.io";
 import prisma from "../helpers/prismaClient";
+import { groupJoinStatusTypes } from "../Types/chat";
 
 export const groupSocket = (io: Server, socket: Socket) => {
-  // JOIN GROUP ROOM
-  socket.on("join-group", async ({ groupId, userId }) => {
+  const userId = (socket as any).userId;
+
+  socket.on("join-group", async ({ groupId }) => {
     try {
-      // Validate membership
       const member = await prisma.groupMember.findFirst({
-        where: { groupId, userId },
+        where: { groupId, userId, status: groupJoinStatusTypes.APPROVED },
       });
 
       if (!member) {
@@ -26,14 +27,12 @@ export const groupSocket = (io: Server, socket: Socket) => {
     }
   });
 
-  // SEND GROUP MESSAGE
   socket.on("send-group-message", async (payload) => {
-    const { groupId, senderId, message } = payload;
+    const { groupId, message } = payload;
 
     try {
-      // Validate membership
       const member = await prisma.groupMember.findFirst({
-        where: { groupId, userId: senderId },
+        where: { groupId, userId, status: groupJoinStatusTypes.APPROVED },
       });
 
       if (!member) {
@@ -41,22 +40,27 @@ export const groupSocket = (io: Server, socket: Socket) => {
         return;
       }
 
-      // Save message
       const savedMessage = await prisma.groupMessage.create({
         data: {
           groupId,
           content: message,
-          senderId,
+          senderId: userId,
           createdAt: new Date(),
         },
         include: {
-          sender: true,
+          sender: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              profileImage: true,
+            },
+          },
         },
       });
 
       const roomName = `group-${groupId}`;
 
-      // Emit to group room
       io.to(roomName).emit("new-group-message", savedMessage);
     } catch (error) {
       console.error("send-group-message error:", error);

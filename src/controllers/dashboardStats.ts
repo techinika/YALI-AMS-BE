@@ -3,23 +3,25 @@ import { userStatusTypes } from "../Types/users";
 import prisma from "../helpers/prismaClient";
 
 export const numbersController = async (req: Request, res: Response) => {
-  const users = await prisma.user.findMany({
-    where: {
-      status: {
-        not: userStatusTypes?.DELETED,
-      },
-    },
-  });
-  const notificationsUnopened = await prisma.notifications.findMany({
-    where: { opened: false },
-  });
-  const messages = await prisma.message.findMany();
-  const sentNotifications = await prisma.notifications.findMany();
+  try {
+    const [users, notificationsUnopened, messages, sentNotifications] =
+      await Promise.all([
+        prisma.user.count({
+          where: { status: { not: userStatusTypes?.DELETED } },
+        }),
+        prisma.notifications.count({ where: { opened: false } }),
+        prisma.message.count(),
+        prisma.notifications.count(),
+      ]);
 
-  res.status(200).send({
-    users: users?.length,
-    notificationsUnopened: notificationsUnopened?.length,
-    messages: messages.length,
-    sentNotifications: sentNotifications.length,
-  });
+    res.status(200).send({
+      users,
+      notificationsUnopened,
+      messages,
+      sentNotifications,
+    });
+  } catch (error) {
+    console.error("Dashboard stats error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
 };

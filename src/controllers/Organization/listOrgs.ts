@@ -3,12 +3,25 @@ import prisma from "../../helpers/prismaClient";
 
 async function getOrganizations(req: Request, res: Response) {
   try {
-    const organizations = await prisma.organization.findMany();
-    return res
-      .status(200)
-      .json({ message: "Organizations", data: organizations });
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+    const skip = (page - 1) * limit;
+
+    const [organizations, total] = await Promise.all([
+      prisma.organization.findMany({ skip, take: limit }),
+      prisma.organization.count(),
+    ]);
+
+    return res.status(200).json({
+      message: "Organizations",
+      data: organizations,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    });
   } catch (error: any) {
-    return res.status(200).json({ message: error?.message, data: null });
+    console.error("getOrganizations error:", error);
+    return res.status(500).json({ message: "Failed to fetch organizations", data: null });
   }
 }
 

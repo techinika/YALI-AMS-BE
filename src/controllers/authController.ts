@@ -1,9 +1,41 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
-import { generateToken, hashPassword, verifyToken } from "../helpers/auth";
+import { generateToken, generateResetToken, hashPassword, verifyToken } from "../helpers/auth";
 import sendEmail from "../helpers/sendMail";
 import { userStatusTypes } from "../Types/users";
 import prisma from "../helpers/prismaClient";
+import { AuthenticatedRequest } from "../middleware/auth";
+import { z } from "zod";
+
+const PASSWORD_MIN_LENGTH = 8;
+
+const changePasswordSchema = z.object({
+  pastPassword: z.string().min(1, "Current password is required"),
+  password: z
+    .string()
+    .min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters`),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Token is required"),
+  newPassword: z
+    .string()
+    .min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters`),
+});
+
+const loginSchema = z.object({
+  email: z.string().email("Invalid email format"),
+  password: z.string().min(1, "Password is required"),
+});
+
+const requestLinkSchema = z.object({
+  email: z.string().email("Invalid email format"),
+});
+
+const excludeSensitiveFields = (user: any) => {
+  const { password, refreshToken, token, ...safeUser } = user;
+  return safeUser;
+};
 
 interface AuthController {
   login(req: Request, res: Response): Promise<Response>;
@@ -15,7 +47,11 @@ interface AuthController {
 
 const AuthController: AuthController = {
   login: async (req, res) => {
-    const { email, password } = req.body;
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
+    }
+    const { email, password } = parsed.data;
     try {
       const user = await prisma.user.findUnique({
         where: {
@@ -58,7 +94,7 @@ const AuthController: AuthController = {
       if (updatedUser) {
         return res
           .status(200)
-          .json({ status: 200, message: "Login successful", token, user });
+          .json({ status: 200, message: "Login successful", token, user: excludeSensitiveFields(user) });
       } else {
         return res.status(500).json({ status: 500, message: "Login failed" });
       }
@@ -68,9 +104,17 @@ const AuthController: AuthController = {
     }
   },
 
-  changePassword: async (req, res) => {
-    const { userId, pastPassword, password } = req.body;
+  changePassword: async (req: AuthenticatedRequest, res: Response) => {
+    const parsed = changePasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
+    }
+    const { pastPassword, password } = parsed.data;
+    const userId = req.user?.id;
     try {
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       const user = await prisma.user.findUnique({
         where: {
           id: userId,
@@ -116,13 +160,15 @@ const AuthController: AuthController = {
     }
   },
 
-  logout: async (req, res) => {
-    const { userId, token } = req.body;
+  logout: async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user?.id;
     try {
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       const user = await prisma.user.findUnique({
         where: {
           id: userId,
-          token,
         },
       });
       if (!user) {
@@ -147,7 +193,11 @@ const AuthController: AuthController = {
   },
 
   requestLink: async (req, res) => {
-    const { email } = req.body;
+    const parsed = requestLinkSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
+    }
+    const { email } = parsed.data;
     try {
       const user = await prisma.user.findUnique({
         where: {
@@ -163,7 +213,7 @@ const AuthController: AuthController = {
         },
       });
       if (user) {
-        const refreshToken = await generateToken(user);
+        const refreshToken = generateResetToken(user);
         const updatedUser = await prisma.user.update({
           where: {
             id: user.id,
@@ -211,18 +261,30 @@ const AuthController: AuthController = {
         return res.status(404).json({ message: "User is not found!" });
       }
     } catch (error: any) {
-      console.log(error?.message);
+      console.error("requestLink error:", error);
       return res.status(500).json({ error: "Internal Server Error" });
     }
   },
 
   resetPassword: async (req, res) => {
-    const { token, newPassword } = req.body;
+    const parsed = resetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
+    }
+    const { token, newPassword } = parsed.data;
     try {
-      const dataFromToken: any = await verifyToken(token);
+      let dataFromToken: any;
+      try {
+        dataFromToken = await verifyToken(token);
+      } catch (err) {
+        return res.status(401).json({ error: "Invalid or expired reset token" });
+      }
+      if (!dataFromToken?.id) {
+        return res.status(401).json({ error: "Invalid or expired reset token" });
+      }
       const user = await prisma.user.findUnique({
         where: {
-          email: dataFromToken?.email,
+          id: dataFromToken?.id,
           status: {
             not: userStatusTypes?.DELETED,
           },
@@ -230,6 +292,9 @@ const AuthController: AuthController = {
       });
       if (!user) {
         return res.status(404).json({ error: "User not found" });
+      }
+      if (user.refreshToken !== token) {
+        return res.status(401).json({ error: "Invalid or expired reset token" });
       }
       const hashedPassword = await hashPassword(newPassword);
       await prisma.user.update({
@@ -268,7 +333,6 @@ const AuthController: AuthController = {
 `,
       });
 
-      console.log(email);
       if (email.status === 200) {
         return res.status(201).json({
           message: "Your password has been changed successfully!",
@@ -280,7 +344,6 @@ const AuthController: AuthController = {
         });
       }
     } catch (error: any) {
-      console.log(error?.message);
       return res.status(500).json({ error: "Internal Server Error" });
     }
   },

@@ -26,12 +26,12 @@ export const inviteUser = async (req: Request, res: Response) => {
         .json({ error: "A user with this email already exists." });
     }
 
-    const inviteToken = generateToken({ email });
-
     let targetUser;
+    let inviteToken;
 
     if (existingUser && existingUser.status === userStatusTypes?.DELETED) {
       // 3. RE-INVITE: Update the existing deleted record
+      inviteToken = generateToken(existingUser);
       targetUser = await prisma.user.update({
         where: { email },
         data: {
@@ -61,9 +61,13 @@ export const inviteUser = async (req: Request, res: Response) => {
           twitter: "",
           password: "",
           status: userStatusTypes?.INVITED,
-          refreshToken: inviteToken,
           createdAt: new Date(),
         },
+      });
+      inviteToken = generateToken(targetUser);
+      targetUser = await prisma.user.update({
+        where: { id: targetUser.id },
+        data: { refreshToken: inviteToken },
       });
     }
 
@@ -75,7 +79,7 @@ export const inviteUser = async (req: Request, res: Response) => {
           <p>You have been invited to join YALI Alumni Management System (AMS).</p>
           <p>Please click the link below to set your password and complete your profile:</p>
           <p>
-            <a href="${process.env.FRONTEND_URL}/reset-password/${inviteToken}">
+            <a href="${process.env.FRONTEND_URL}/reset-password/${targetUser.refreshToken}">
               Complete Your Registration
             </a>
           </p>
@@ -87,7 +91,12 @@ export const inviteUser = async (req: Request, res: Response) => {
 
     return res.status(201).json({
       message: "Invitation sent successfully",
-      user: targetUser,
+      user: {
+        id: targetUser.id,
+        email: targetUser.email,
+        firstName: targetUser.firstName,
+        status: targetUser.status,
+      },
     });
   } catch (err) {
     console.error("Invite user error:", err);
@@ -131,7 +140,12 @@ export const reInviteUser = async (req: Request, res: Response) => {
 
     return res.status(201).json({
       message: "Invitation sent successfully again.",
-      user: existing,
+      user: {
+        id: existing.id,
+        email: existing.email,
+        firstName: existing.firstName,
+        status: existing.status,
+      },
     });
   } catch (err) {
     console.error("Invite user error:", err);

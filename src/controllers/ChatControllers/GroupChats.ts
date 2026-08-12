@@ -2,15 +2,15 @@ import { Request, Response } from "express";
 import prisma from "../../helpers/prismaClient";
 import { groupJoinStatusTypes } from "../../Types/chat";
 import sendEmail from "../../helpers/sendMail";
+import { AuthenticatedRequest } from "../../middleware/auth";
 
-export const createGroup = async (req: Request, res: Response) => {
-  const { name, createdBy, memberIds, interests } = req.body;
-
-  console.log(req.body);
+export const createGroup = async (req: AuthenticatedRequest, res: Response) => {
+  const { name, memberIds, interests, description } = req.body;
+  const createdBy = req.user?.id;
 
   if (!name || !createdBy) {
     return res.status(400).json({
-      message: "Group name and creator ID are required.",
+      message: "Group name is required.",
     });
   }
 
@@ -18,7 +18,7 @@ export const createGroup = async (req: Request, res: Response) => {
     const group = await prisma.group.create({
       data: {
         name,
-        description: req.body.description || "",
+        description: description || "",
         interests,
         createdBy: {
           connect: {
@@ -58,54 +58,47 @@ export const createGroup = async (req: Request, res: Response) => {
         skipDuplicates: true,
       });
 
-      const memberIds = newMembers.map((m) => m.userId);
+      const memberUserIds = newMembers.map((m) => m.userId);
       const members = await prisma.user.findMany({
-        where: { id: { in: memberIds } },
+        where: { id: { in: memberUserIds } },
         select: { id: true, firstName: true, email: true },
       });
 
       const memberMap = new Map(members.map((m) => [m.id, m]));
 
-      for (const m of newMembers) {
-        const member = memberMap.get(m.userId);
-        if (member) {
-          await sendEmail({
-            subject: "Your have been invited to join a group on YALI AMS!",
-            name: member.firstName,
-            message: `<p>
-             You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.
-          </p>
-          <p>
-            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
-              Review Invitation
-            </a>
-          </p>
-    <p style="font-size: 14px; color: #777;">
-      If you do not want to join this group, please ignore this.
-    </p></div>`,
-            receiver: member.email,
-          });
-
-          const notification = {
-            title: "Your have been invited to join a group on YALI AMS!",
-            message: `<p>
-           You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.
-          </p>
-          <p>
-            <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
-              Review Invitation
-            </a>
-          </p>`,
-            receiverId: m?.userId,
+      const notificationsData = newMembers
+        .map((m) => {
+          const member = memberMap.get(m.userId);
+          if (!member) return null;
+          return {
+            title: "You have been invited to join a group on YALI AMS!",
+            message: `<p>You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.</p><p><a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">Review Invitation</a></p>`,
+            receiverId: m.userId,
             opened: false,
             createdAt: new Date(),
           };
+        })
+        .filter(Boolean) as any[];
 
-          await prisma.notifications.create({
-            data: notification,
-          });
-        }
+      if (notificationsData.length > 0) {
+        await prisma.notifications.createMany({
+          data: notificationsData,
+          skipDuplicates: true,
+        });
       }
+
+      await Promise.all(
+        newMembers.map((m) => {
+          const member = memberMap.get(m.userId);
+          if (!member) return Promise.resolve();
+          return sendEmail({
+            subject: "You have been invited to join a group on YALI AMS!",
+            name: member.firstName,
+            message: `<p>You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.</p><p><a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">Review Invitation</a></p><p style="font-size: 14px; color: #777;">If you do not want to join this group, please ignore this.</p>`,
+            receiver: member.email,
+          });
+        })
+      );
     }
 
     return res.status(201).json({
@@ -116,27 +109,36 @@ export const createGroup = async (req: Request, res: Response) => {
     console.error("Create group error:", err);
     return res
       .status(500)
-      .json({ message: "Server error", error: err.message });
+      .json({ message: "Server error" });
   }
 };
 
-export const addMemberToGroup = async (req: Request, res: Response) => {
+export const addMemberToGroup = async (req: AuthenticatedRequest, res: Response) => {
   const { groupId } = req.params;
   const { userId } = req.body;
+  const requestingUserId = req.user?.id;
 
   if (!userId) {
     return res.status(400).json({ message: "User ID is required." });
   }
 
   try {
+    const group = await prisma.group.findFirst({ where: { id: groupId } });
+
+    if (!group) {
+      return res.status(404).json({ message: "Group not found." });
+    }
+
+    if (group.createdById !== requestingUserId) {
+      return res.status(403).json({ message: "Only group admins can add members." });
+    }
+
     const existingMembership = await prisma.groupMember.findFirst({
       where: {
         groupId,
         userId,
       },
     });
-
-    const group = await prisma.group.findFirst({ where: { id: groupId } });
 
     if (
       existingMembership?.status ===
@@ -165,7 +167,7 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
 
     if (user) {
       await sendEmail({
-        subject: "Your have been invited to join a group on YALI AMS!",
+        subject: "You have been invited to join a group on YALI AMS!",
         name: user.firstName,
         message: `<p>
              You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.
@@ -177,12 +179,12 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
           </p>
     <p style="font-size: 14px; color: #777;">
       If you do not want to join this group, please ignore this.
-    </p></div>`,
+    </p>`,
         receiver: user.email,
       });
 
       const notification = {
-        title: "Your have been invited to join a group on YALI AMS!",
+        title: "You have been invited to join a group on YALI AMS!",
         message: `<p>
            You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.
           </p>
@@ -214,8 +216,9 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
   }
 };
 
-export const sendGroupMessage = async (req: Request, res: Response) => {
-  const { groupId, userId } = req.params;
+export const sendGroupMessage = async (req: AuthenticatedRequest, res: Response) => {
+  const { groupId } = req.params;
+  const userId = req.user?.id;
   const { content } = req.body;
 
   if (!groupId || !userId || !content) {
@@ -271,8 +274,9 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
   }
 };
 
-export const getGroupMessages = async (req: Request, res: Response) => {
-  const { groupId, userId } = req.params;
+export const getGroupMessages = async (req: AuthenticatedRequest, res: Response) => {
+  const { groupId } = req.params;
+  const userId = req.user?.id;
 
   if (!groupId || !userId) {
     return res.status(400).json({
@@ -362,13 +366,18 @@ export const getGroupMembers = async (req: Request, res: Response) => {
   }
 };
 
-export const removeUserFromGroup = async (req: Request, res: Response) => {
-  const { groupId, userId } = req.params;
+export const removeUserFromGroup = async (req: AuthenticatedRequest, res: Response) => {
+  const { groupId, userId } = req.body;
 
   if (!groupId || !userId) {
     return res
       .status(400)
       .json({ message: "groupId and userId are required." });
+  }
+
+  const requestingUserId = req.user?.id;
+  if (!requestingUserId) {
+    return res.status(401).json({ message: "Authentication required." });
   }
 
   try {
@@ -378,6 +387,12 @@ export const removeUserFromGroup = async (req: Request, res: Response) => {
 
     if (!group) {
       return res.status(404).json({ message: "Group not found." });
+    }
+
+    if (group.createdById !== requestingUserId) {
+      return res
+        .status(403)
+        .json({ message: "Only the group admin can remove members." });
     }
 
     if (group.createdById === userId) {
@@ -419,7 +434,7 @@ export const removeUserFromGroup = async (req: Request, res: Response) => {
           </p>
     <p style="font-size: 14px; color: #777;">
       If you need more information, please reach out to group admin.
-    </p></div>`,
+    </p>`,
         receiver: user.email,
       });
 
@@ -512,13 +527,9 @@ export const getGroupById = async (req: Request, res: Response) => {
   }
 };
 
-export const getMyGroups = async (req: Request, res: Response) => {
+export const getMyGroups = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    let userId = req.user?.id || req.params.userId || req.query.userId;
-
-    if (Array.isArray(userId)) {
-      userId = userId[0];
-    }
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(400).json({

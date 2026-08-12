@@ -11,6 +11,7 @@ import {
   removeWSfromOrganization,
 } from "../controllers/Organization/workingSector";
 import { updateOrganization } from "../controllers/Organization/updateOrganization";
+import { requireAdmin } from "../middleware/auth";
 
 const router = Router();
 
@@ -18,9 +19,9 @@ router.get("/", getOrganizations);
 router.get("/:id", getOrganizationById);
 router.get("/user/:id", getOrganizationsForUser);
 router.get("/user/:id/:orgId", getOrganizationsForUserById);
-router.post("/new", createNewOrganization);
-router.put("/update", updateOrganization);
-router.post("/ws/add", addWStoOrganization);
-router.delete("/ws/remove", removeWSfromOrganization);
+router.post("/new", requireAdmin, createNewOrganization);
+router.put("/update", requireAdmin, updateOrganization);
+router.post("/ws/add", requireAdmin, addWStoOrganization);
+router.delete("/ws/remove", requireAdmin, removeWSfromOrganization);
 
 export default router;

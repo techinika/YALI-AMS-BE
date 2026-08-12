@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { generateToken } from "../../helpers/auth";
+import { generateResetToken } from "../../helpers/auth";
 import sendEmail from "../../helpers/sendMail";
 import { userStatusTypes } from "../../Types/users";
 import prisma from "../../helpers/prismaClient";
@@ -10,8 +10,14 @@ export const importUsers = async (req: Request, res: Response) => {
     const errors = [];
     const processedUsers = [];
 
-    if (data.length === 0) {
+    const MAX_IMPORT_SIZE = 500;
+
+    if (!data || !Array.isArray(data) || data.length === 0) {
       return res.status(400).send({ message: "The uploaded file is empty." });
+    }
+
+    if (data.length > MAX_IMPORT_SIZE) {
+      return res.status(400).send({ message: `Import limited to ${MAX_IMPORT_SIZE} users per batch. You uploaded ${data.length}.` });
     }
 
     for (const row of data) {
@@ -103,8 +109,6 @@ export const importUsers = async (req: Request, res: Response) => {
             : new Date(),
           roleId: "12",
         };
-
-        const refreshToken = generateToken(user);
 
         const [OFWS, OEWS, EC, FC, UC, cohort, track, district, sector, state] =
           await Promise.all([
@@ -213,13 +217,19 @@ export const importUsers = async (req: Request, res: Response) => {
               },
             },
             status: userStatusTypes?.INACTIVE,
-            refreshToken: refreshToken,
             facebook: user?.facebook,
             instagram: user?.instagram,
             linkedin: user?.linkedin,
             twitter: user?.twitter,
             createdAt: new Date(),
           },
+        });
+
+        const refreshToken = generateResetToken(US);
+        US.refreshToken = refreshToken;
+        await prisma.user.update({
+          where: { id: US.id },
+          data: { refreshToken },
         });
 
         processedUsers.push(US);
@@ -297,9 +307,17 @@ export const importUsers = async (req: Request, res: Response) => {
       }
     }
 
+    const safeUsers = processedUsers.map((u: any) => ({
+      id: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      status: u.status,
+    }));
+
     return res.status(201).send({
       message: "Users uploaded and processed successfully!",
-      processedUsers,
+      processedUsers: safeUsers,
       errors,
     });
   } catch (error: any) {

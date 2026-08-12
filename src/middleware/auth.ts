@@ -7,6 +7,7 @@ export interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
     email: string;
+    role?: string | null;
   };
 }
 
@@ -24,7 +25,7 @@ export const requireAuth = async (
 
     const token = authHeader.split(" ")[1];
 
-    const decoded = verifyToken(token) as { id: string; email: string };
+    const decoded = verifyToken(token) as { id: string };
 
     const user = await prisma.user.findUnique({
       where: {
@@ -36,6 +37,11 @@ export const requireAuth = async (
       select: {
         id: true,
         email: true,
+        role: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
 
@@ -43,10 +49,24 @@ export const requireAuth = async (
       return res.status(401).json({ message: "User not found" });
     }
 
-    req.user = user;
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role?.name ?? null,
+    };
     next();
   } catch (error) {
-    console.log(error);
     return res.status(401).json({ message: "Invalid or expired token" });
   }
+};
+
+export const requireAdmin = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  if (!req.user?.role || req.user.role.toLowerCase() !== "admin") {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+  next();
 };

@@ -13,9 +13,6 @@ const adapter = new PrismaMariaDb({
   allowPublicKeyRetrieval: true,
 });
 
-console.log("Connecting to MariaDB at: ", process.env.DATABASE_HOST);
-console.log("Connecting to MariaDB at: ", adapter);
-
 const prisma = new PrismaClient({ adapter }).$extends(activityLoggerExtension);
 
 export default prisma;

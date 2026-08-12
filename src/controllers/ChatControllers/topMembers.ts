@@ -24,30 +24,30 @@ export const getTopActiveMembers = async (req: Request, res: Response) => {
 
     if (grouped.length === 0) return [];
 
-    const results = await Promise.all(
-      grouped.map(async (g) => {
-        const user = await prisma.user.findUnique({
-          where: {
-            id: g.senderId!,
-            status: {
-              not: userStatusTypes?.DELETED,
-            },
-          },
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            profileImageId: true,
-          },
-        });
+    const senderIds = grouped.map((g) => g.senderId!).filter(Boolean);
 
-        return {
-          user,
-          messageCount: g._count.senderId,
-        };
-      })
-    );
+    const users = await prisma.user.findMany({
+      where: {
+        id: { in: senderIds },
+        status: { not: userStatusTypes?.DELETED },
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        profileImageId: true,
+      },
+    });
+
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    const results = grouped
+      .map((g) => ({
+        user: userMap.get(g.senderId!) || null,
+        messageCount: g._count.senderId,
+      }))
+      .filter((r) => r.user !== null);
 
     res.status(200).send({
       message: "Top Active Members",

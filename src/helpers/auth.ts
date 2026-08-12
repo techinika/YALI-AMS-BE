@@ -3,9 +3,13 @@ import jwt from "jsonwebtoken";
 import { userStatusTypes } from "../Types/users";
 import prisma from "./prismaClient";
 
-const secret: string = process.env.SECRET_KEY
-  ? process.env.SECRET_KEY
-  : "secret";
+if (!process.env.SECRET_KEY) {
+  throw new Error(
+    "FATAL: SECRET_KEY environment variable is not set. Refusing to start."
+  );
+}
+
+const secret: string = process.env.SECRET_KEY;
 
 export const UserExistsWithId = async (userId: string): Promise<any> => {
   let user = await prisma.user.findUnique({
@@ -32,34 +36,31 @@ export const UserExistsWithEmail = async (userEmail: string): Promise<any> => {
   return user;
 };
 
-export const hashPassword = (password: string): string => {
-  let salt = bcrypt.genSaltSync(10);
-  let hashedPass = bcrypt.hashSync(password, salt);
+export const hashPassword = async (password: string): Promise<string> => {
+  const salt = await bcrypt.genSalt(10);
+  const hashedPass = await bcrypt.hash(password, salt);
   return hashedPass;
 };
 
-export const passwordCompare = (
+export const passwordCompare = async (
   password: string,
   hashedPass: string
-): boolean => {
-  let answer = bcrypt.compareSync(password, hashedPass);
-  return answer;
+): Promise<boolean> => {
+  return bcrypt.compare(password, hashedPass);
 };
 
-export const generateToken = (user: any): string => {
+export const generateToken = (user: any, expiresIn: string = "24h"): string => {
   const payload = {
     id: user?.id,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    phoneNumber: user.phoneNumber,
-    email: user.email,
-    role: user?.role,
-    profilePicture: user?.profileImage,
   };
 
   return jwt.sign(payload, secret, {
-    expiresIn: "24h",
+    expiresIn: expiresIn as any,
   });
+};
+
+export const generateResetToken = (user: any): string => {
+  return generateToken(user, "1h");
 };
 
 export const verifyToken = (token: string) => {

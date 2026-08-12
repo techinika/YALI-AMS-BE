@@ -2,10 +2,12 @@ import { Request, Response } from "express";
 import prisma from "../../helpers/prismaClient";
 import { groupJoinStatusTypes } from "../../Types/chat";
 import sendEmail from "../../helpers/sendMail";
+import { AuthenticatedRequest } from "../../middleware/auth";
 
-export const requestToJoinGroup = async (req: Request, res: Response) => {
+export const requestToJoinGroup = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { groupId, userId } = req.body;
+    const { groupId } = req.body;
+    const userId = req.user?.id;
 
     if (!groupId || !userId) {
       return res.status(400).json({ message: "groupId is required." });
@@ -78,7 +80,7 @@ export const requestToJoinGroup = async (req: Request, res: Response) => {
           </p>
     <p style="font-size: 14px; color: #777;">
       If you are not the admin of this group, please contact Admin immediately or ignore this.
-    </p></div>`,
+    </p>`,
         receiver: admin?.email,
       });
 
@@ -109,17 +111,16 @@ export const requestToJoinGroup = async (req: Request, res: Response) => {
     console.error("Error requesting to join group:", error);
     return res.status(500).json({
       message: "Internal server error",
-      error: error.message,
     });
   }
 };
 
-export const approveGroupJoinRequest = async (req: Request, res: Response) => {
+export const approveGroupJoinRequest = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { groupId, userId } = req.body;
     const adminId = req.user?.id;
 
-    if (!groupId || !userId) {
+    if (!groupId || !userId || !adminId) {
       return res
         .status(400)
         .json({ message: "groupId and userId are required." });
@@ -176,7 +177,7 @@ export const approveGroupJoinRequest = async (req: Request, res: Response) => {
           </p>
     <p style="font-size: 14px; color: #777;">
       If you did not request to join this group, please contact Admin immediately or ignore this.
-    </p></div>`,
+    </p>`,
         receiver: member?.email,
       });
 
@@ -207,14 +208,14 @@ export const approveGroupJoinRequest = async (req: Request, res: Response) => {
     console.error("Approve group join error:", error);
     return res.status(500).json({
       message: "Internal server error",
-      error: error.message,
     });
   }
 };
 
-export const acceptGroupInvitation = async (req: Request, res: Response) => {
+export const acceptGroupInvitation = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { groupId, userId } = req.body;
+    const { groupId } = req.body;
+    const userId = req.user?.id;
 
     if (!groupId || !userId) {
       return res.status(400).json({ message: "groupId is required." });
@@ -265,7 +266,7 @@ export const acceptGroupInvitation = async (req: Request, res: Response) => {
           </p>
     <p style="font-size: 14px; color: #777;">
       If you did send this invitation to join this group, please contact Admin immediately or ignore this.
-    </p></div>`,
+    </p>`,
         receiver: admin?.email,
       });
 
@@ -296,14 +297,13 @@ export const acceptGroupInvitation = async (req: Request, res: Response) => {
     console.error("Accept group invitation error:", error);
     return res.status(500).json({
       message: "Internal server error",
-      error: error.message,
     });
   }
 };
 
-export const declineGroupInvitation = async (req: Request, res: Response) => {
+export const declineGroupInvitation = async (req: AuthenticatedRequest, res: Response) => {
   const { groupId } = req.params;
-  const { userId } = req.body;
+  const userId = req.user?.id;
 
   if (!groupId || !userId) {
     return res.status(400).json({
@@ -356,7 +356,7 @@ export const declineGroupInvitation = async (req: Request, res: Response) => {
           </p>
     <p style="font-size: 14px; color: #777;">
       If you did send this invitation to join this group, please contact Admin immediately or ignore this.
-    </p></div>`,
+    </p>`,
         receiver: admin?.email,
       });
 
@@ -387,14 +387,14 @@ export const declineGroupInvitation = async (req: Request, res: Response) => {
     console.error("Decline invitation error:", error);
     return res.status(500).json({
       message: "Internal server error.",
-      error: error.message,
     });
   }
 };
 
-export const rejectJoinRequest = async (req: Request, res: Response) => {
+export const rejectJoinRequest = async (req: AuthenticatedRequest, res: Response) => {
   const { groupId } = req.params;
-  const { adminId, userId } = req.body;
+  const { userId } = req.body;
+  const adminId = req.user?.id;
 
   if (!groupId || !adminId || !userId) {
     return res.status(400).json({
@@ -458,7 +458,7 @@ export const rejectJoinRequest = async (req: Request, res: Response) => {
           </p>
     <p style="font-size: 14px; color: #777;">
       If you did send this request to join this group, please ignore this.
-    </p></div>`,
+    </p>`,
         receiver: member?.email,
       });
 
@@ -489,30 +489,44 @@ export const rejectJoinRequest = async (req: Request, res: Response) => {
     console.error("Reject join request error:", error);
     return res.status(500).json({
       message: "Internal server error.",
-      error: error.message,
     });
   }
 };
 
-export const getUsersToInvite = async (req: Request, res: Response) => {
-  const { currentUserId, activeGroupId } = req.params;
-  const usersToInvite = await prisma.user.findMany({
-    where: {
-      id: {
-        not: currentUserId,
-      },
-      groupMembers: {
-        none: {
-          groupId: activeGroupId,
+export const getUsersToInvite = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { currentUserId, activeGroupId } = req.params;
+    const requesterId = req.user?.id;
+
+    if (!requesterId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    if (requesterId !== currentUserId) {
+      return res.status(403).json({ error: "You can only invite for your own account" });
+    }
+
+    const usersToInvite = await prisma.user.findMany({
+      where: {
+        id: {
+          not: currentUserId,
+        },
+        groupMembers: {
+          none: {
+            groupId: activeGroupId,
+          },
         },
       },
-    },
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-    },
-  });
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+      },
+    });
 
-  return res.status(200).json({ data: usersToInvite });
+    return res.status(200).json({ data: usersToInvite });
+  } catch (error: any) {
+    console.error("getUsersToInvite error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
 };
