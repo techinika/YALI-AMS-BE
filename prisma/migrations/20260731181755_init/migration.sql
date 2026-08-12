@@ -1,5 +1,5 @@
 -- AlterTable
-ALTER TABLE `user` MODIFY `password` VARCHAR(191) NOT NULL DEFAULT '';
+ALTER TABLE `User` MODIFY `password` VARCHAR(191) NOT NULL DEFAULT '';
 
 -- CreateIndex
 CREATE INDEX `ActivityLog_userId_idx` ON `ActivityLog`(`userId`);
@@ -17,6 +17,6 @@ ALTER TABLE `MatchmakingItem` ADD CONSTRAINT `MatchmakingItem_matchedUserId_fkey
 ALTER TABLE `MatchmakingItem` ADD CONSTRAINT `MatchmakingItem_matchedGroupId_fkey` FOREIGN KEY (`matchedGroupId`) REFERENCES `Group`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- RedefineIndex
-ALTER TABLE `organization` DROP FOREIGN KEY `Organization_addedById_fkey`;
+ALTER TABLE `Organization` DROP FOREIGN KEY `Organization_addedById_fkey`;
 CREATE INDEX `Organization_addedById_idx` ON `Organization`(`addedById`);
-ALTER TABLE `organization` ADD CONSTRAINT `Organization_addedById_fkey` FOREIGN KEY (`addedById`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `Organization` ADD CONSTRAINT `Organization_addedById_fkey` FOREIGN KEY (`addedById`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;

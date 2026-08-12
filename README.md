@@ -6,7 +6,7 @@ Alumni Management System for YALI Rwanda Chapter
 
 ## Tech Stack
 
-- **Backend:** Node.js, Express, Prisma, MySQL  
+- **Backend:** Node.js, Express, Prisma (MySQL/MariaDB)  
 - **Frontend:** React, Next.js, Tailwind CSS  
 - **Real-time:** Socket.IO (chat, group messages, and per-user notification events)
 - **Queue:** BullMQ + Redis for background job processing
@@ -127,7 +127,6 @@ Interactive API documentation is available at `/api/docs` when the server is run
 - DB credential logging removed
 
 ### Known Limitations
-- No input validation library (Zod or similar) — validate inputs at the API boundary before adding untrusted data
 - Socket.IO connections have no auth middleware
 
 ---
@@ -160,7 +159,15 @@ Prisma migrations live in `prisma/migrations/`:
 
 > **Note:** The `Organization_addedById` index rename is emitted as a RedefineIndex step. Because MySQL/MariaDB cannot `DROP INDEX` an index that backs a foreign key (error 1091), the migration drops the foreign key, creates the new index, then re-adds the foreign key constraint.
 
+> **Note (case-sensitive filesystems):** On Linux MySQL/MariaDB (`lower_case_table_names=0`), `20260731181755_init` initially failed because it referenced tables as `user`/`organization` while they are created as `User`/`Organization`. The migration file was corrected to use the exact table case. If you run `migrate deploy` on a fresh database and hit the same error, apply the corrected SQL and mark the migration resolved.
+
 > **Note:** The `migrate:dev` npm script passes `--name init`. Use `npm run migrate:noinit` (plain `prisma migrate dev`) for subsequent schema changes, or run `npx prisma migrate dev` directly.
+
+## Prerequisites
+
+- Node.js 18+
+- MySQL or MariaDB 10.6+ (the app uses the `@prisma/adapter-mariadb` driver)
+- Redis (required for BullMQ background jobs and response caching)
 
 ## Installation
 
@@ -170,12 +177,19 @@ npm install
 
 # Setup environment variables
 cp .env.example .env
-# Edit .env with your database and Redis credentials
+# Edit .env with your database and Redis credentials (root password, DB name, etc.)
 
 # Run database migrations
 npx prisma migrate deploy
 
-# Start the server
+# Seed the database with reference data (genders, cohorts, roles, districts, sectors, countries, states, etc.)
+npm run seed
+
+# Start the server in development (hot reload via tsx watch)
+npm run dev
+
+# Or build and start for production
+npm run build
 npm start
 ```
 
@@ -185,20 +199,52 @@ npm start
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|:--------:|
-| `SECRET_KEY` | JWT signing secret | - | **Yes** |
-| `DATABASE_HOST` | MySQL database host | - | Yes |
-| `DATABASE_PORT` | MySQL port | 3306 | No |
+| `PORT` | HTTP API server port | 9000 | No |
+| `HTTP_PORT` | Socket.IO server port | 4500 | No |
+| `SECRET_KEY` | JWT signing secret (use a secure 64+ char random string for production) | - | **Yes** |
+| `DATABASE_URL` | Prisma CLI connection string (MySQL) | - | Yes |
+| `DATABASE_HOST` | MySQL/MariaDB host | 127.0.0.1 | Yes |
+| `DATABASE_PORT` | MySQL/MariaDB port | 3306 | No |
 | `DATABASE_USER` | Database username | - | Yes |
 | `DATABASE_PASSWORD` | Database password | - | Yes |
 | `DATABASE_NAME` | Database name | - | Yes |
-| `CONNECTION_LIMIT` | Database connection pool size | 20 | No |
+| `CONNECTION_LIMIT` | Database connection pool size | 100 | No |
+| `EMAIL_HOST` | SMTP host for outgoing email | - | No |
+| `EMAIL_PORT` | SMTP port | 465 | No |
+| `EMAIL_USERNAME` | SMTP username | - | No |
+| `EMAIL_PASSWORD` | SMTP password | - | No |
+| `CLOUDINARY_NAME` | Cloudinary cloud name | - | No |
+| `CLOUDINARY_KEY` | Cloudinary API key | - | No |
+| `CLOUDINARY_SECRET` | Cloudinary API secret | - | No |
+| `GEMINI_KEY` | Google Gemini API key | - | No |
+| `REDIS_URL` | Redis connection URL | redis://localhost:6379 | No |
+| `FRONTEND_URL` | Frontend URL for notification links | - | No |
+| `ALLOWED_ORIGINS` | Comma-separated CORS origins (or `*` for development only) | - | No |
 | `RATE_LIMIT_WINDOW_MS` | Rate limit window (ms) | 900000 (15 min) | No |
 | `RATE_LIMIT_MAX` | Max requests per window | 100 | No |
 | `AUTH_RATE_LIMIT_WINDOW_MS` | Auth rate limit window (ms) | 900000 | No |
 | `AUTH_RATE_LIMIT_MAX` | Max auth requests per window | 10 | No |
-| `REDIS_URL` | Redis connection URL | redis://localhost:6379 | No |
-| `GEMINI_KEY` | Google Gemini API key | - | No |
-| `FRONTEND_URL` | Frontend URL for notifications | - | No |
+
+---
+
+## Redis
+
+Redis powers two features: **BullMQ** background jobs (AI matchmaking) and **response caching** for reference data (`src/helpers/cache.ts`, 5-minute TTL). The app falls back to the database gracefully if Redis is unreachable, so the server still boots without it — but caching and queued jobs are disabled.
+
+Quick setup on Ubuntu/Debian:
+
+```bash
+sudo apt update
+sudo apt install -y redis-server
+
+# Verify it is running
+redis-cli ping   # -> PONG
+
+# Optional: enable auto-start on boot
+sudo systemctl enable redis-server
+```
+
+Redis binds to `127.0.0.1:6379` by default, which matches the `REDIS_URL` default (`redis://localhost:6379`). For production, secure Redis with a password (`requirepass` in `/etc/redis/redis.conf`) and point `REDIS_URL` at it, e.g. `redis://:yourpassword@127.0.0.1:6379`.
 
 ---
 
