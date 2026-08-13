@@ -56,15 +56,26 @@ Interactive API documentation is available at `/api/docs` when the server is run
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/chat` | Get messages |
-| POST | `/api/chat` | Send message |
+| GET | `/api/chat` | Get public/community messages |
+| POST | `/api/chat` | Send message (body: `{ senderId, receiverId, message }`; `receiverId` empty → public) |
+| GET | `/api/chat/top` | Get top active members |
+| GET | `/api/chat/:id` | Get a user's private chats |
+| GET | `/api/chat/:id/:oid` | Get private messages between two users |
 | GET | `/api/chat/group/all` | Get all groups |
 | POST | `/api/chat/group/create` | Create group |
 | GET | `/api/chat/group/:groupId` | Get group by ID |
-| GET | `/api/chat/group/my` | Get current user's groups |
-| POST | `/api/chat/group/messages/:groupId` | Send group message (auth user as sender) |
-| GET | `/api/chat/group/messages/:groupId` | Get group messages (auth user verified as member) |
+| GET | `/api/chat/group/my/:userId` | Get groups the current user belongs to |
+| POST | `/api/chat/group/messages/:groupId/:userId` | Send group message (auth user as sender) |
+| GET | `/api/chat/group/messages/:groupId/:userId` | Get group messages (auth user verified as member) |
+| GET | `/api/chat/group/get-members/:groupId` | Get group members |
+| POST | `/api/chat/group/add-member/:groupId` | Add member to group |
 | DELETE | `/api/chat/group/remove-member` | Remove member (body: groupId, userId; admin only) |
+| POST | `/api/chat/group/join-request` | Request to join a group |
+| POST | `/api/chat/group/approve-request/admin` | Admin approves a join request |
+| POST | `/api/chat/group/approve-request/member` | Member accepts a group invitation |
+| POST | `/api/chat/group/reject-request/:groupId` | Reject a join request |
+| POST | `/api/chat/group/decline-request/:groupId` | Decline a group invitation |
+| GET | `/api/chat/group/to-invite/:currentUserId/:activeGroupId` | List users available to invite to a group |
 
 ### Matchmaking Endpoints
 
@@ -126,8 +137,9 @@ Interactive API documentation is available at `/api/docs` when the server is run
 - Group operations (send message, create group, remove member) use the authenticated user's ID from the JWT, not URL params or request body
 - DB credential logging removed
 
-### Known Limitations
-- Socket.IO connections have no auth middleware
+### Socket Authentication
+- Socket.IO connections are authenticated with the same JWT (`socket.handshake.auth.token` or `socket.handshake.query.token`) via middleware in `src/sockets/index.ts`; unauthenticated sockets are rejected
+- Each socket is joined to a per-user room (`user-<userId>`) so controllers can target individuals
 
 ---
 
@@ -143,8 +155,10 @@ Interactive API documentation is available at `/api/docs` when the server is run
 
 ## Real-time Notifications
 
-- **Socket events:** the server emits `new-message`, `new-group-message`, and `notification:new` to per-user rooms (`user-<userId>`)
-- **`src/sockets/notificationEmitter.ts`:** central emitter that creates a `Notifications` row and broadcasts it via `notification:new`; the Socket.IO instance is captured by `setIO` so controllers and BullMQ workers can emit without holding a reference to the server
+- **Socket.IO** is served on the **same HTTP server as the API** (`PORT`), at path `/ws/socket.io/` — there is no separate socket port. The legacy `HTTP_PORT` env var is unused.
+- **Socket events:** the server emits `new-message`, `new-group-message`, and `notification:new` to per-user rooms (`user-<userId>`) and per-group rooms (`group-<groupId>`)
+- **`src/sockets/notificationEmitter.ts`:** central emitter holding the Socket.IO instance; `setIO` captures it at startup and `getIO()` exposes it to controllers and BullMQ workers
+- **Single-writer messaging:** messages are persisted once by the REST controllers (`sendMessage`, `sendGroupMessage`) and then broadcast over sockets via `getIO()` — the client no longer double-writes through socket handlers
 - **Matchmaking lifecycle notifications:** "AI Matchmaking Started" on request creation, "AI Matchmaking Completed"/"Failed" from the BullMQ worker (both the in-job failure branches and the `worker.on("failed")` handler)
 - **Profile update cron:** the hourly `generateProfileUpdateNotifications` job now emits a `notification:new` refetch signal to affected users
 
@@ -199,8 +213,8 @@ npm start
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|:--------:|
-| `PORT` | HTTP API server port | 9000 | No |
-| `HTTP_PORT` | Socket.IO server port | 4500 | No |
+| `PORT` | HTTP API server port (Socket.IO shares this port at `/ws/socket.io/`) | 9000 | No |
+| `HTTP_PORT` | **Legacy/unused** — sockets are served on `PORT`, not a separate port | 4500 | No |
 | `SECRET_KEY` | JWT signing secret (use a secure 64+ char random string for production) | - | **Yes** |
 | `DATABASE_URL` | Prisma CLI connection string (MySQL) | - | Yes |
 | `DATABASE_HOST` | MySQL/MariaDB host | 127.0.0.1 | Yes |

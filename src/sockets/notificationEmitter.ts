@@ -7,6 +7,8 @@ export const setIO = (io: Server | null) => {
   ioInstance = io;
 };
 
+export const getIO = () => ioInstance;
+
 export const emitToUser = (userId: string, event: string, payload: unknown) => {
   if (ioInstance) {
     ioInstance.to(`user-${userId}`).emit(event, payload);

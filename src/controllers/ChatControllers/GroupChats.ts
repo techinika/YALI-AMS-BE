@@ -3,6 +3,7 @@ import prisma from "../../helpers/prismaClient";
 import { groupJoinStatusTypes } from "../../Types/chat";
 import sendEmail from "../../helpers/sendMail";
 import { AuthenticatedRequest } from "../../middleware/auth";
+import { getIO } from "../../sockets/notificationEmitter";
 
 export const createGroup = async (req: AuthenticatedRequest, res: Response) => {
   const { name, memberIds, interests, description } = req.body;
@@ -260,6 +261,8 @@ export const sendGroupMessage = async (req: AuthenticatedRequest, res: Response)
         },
       },
     });
+
+    getIO()?.to(`group-${groupId}`).emit("new-group-message", message);
 
     return res.status(201).json({
       message: "Message sent successfully.",

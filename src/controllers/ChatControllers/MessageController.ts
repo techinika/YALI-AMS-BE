@@ -1,5 +1,6 @@
 import prisma from "../../helpers/prismaClient";
 import { AuthenticatedRequest } from "../../middleware/auth";
+import { getIO } from "../../sockets/notificationEmitter";
 
 export const getMessages = async (req: any, res: any) => {
   try {
@@ -141,7 +142,7 @@ export const getPrivateChats = async (req: AuthenticatedRequest, res: any) => {
 };
 
 export const sendMessage = async (req: AuthenticatedRequest, res: any) => {
-  const { data: messageData } = req.body;
+  const messageData = req.body?.data ?? req.body;
   const senderId = req.user?.id;
   let message: any;
   try {
@@ -171,6 +172,14 @@ export const sendMessage = async (req: AuthenticatedRequest, res: any) => {
     }
     if (!message) {
       return res.status(500).json({ error: "Failed to create message" });
+    }
+
+    const io = getIO();
+    if (messageData?.receiverId == "") {
+      io?.emit("new-message", message);
+    } else {
+      io?.to(`user-${senderId}`).emit("new-message", message);
+      io?.to(`user-${messageData?.receiverId}`).emit("new-message", message);
     }
 
     res.status(201).send({ message: "Message Sent", data: message });
