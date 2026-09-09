@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../../helpers/prismaClient";
 import { groupJoinStatusTypes } from "../../Types/chat";
-import sendEmail from "../../helpers/sendMail";
+import sendEmail, { escapeHtml } from "../../helpers/sendMail";
 import { AuthenticatedRequest } from "../../middleware/auth";
 import { getIO } from "../../sockets/notificationEmitter";
 
@@ -73,7 +73,7 @@ export const createGroup = async (req: AuthenticatedRequest, res: Response) => {
           if (!member) return null;
           return {
             title: "You have been invited to join a group on YALI AMS!",
-            message: `<p>You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.</p><p><a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">Review Invitation</a></p>`,
+            message: `<p>You have been invited to join group "<strong>${escapeHtml(group?.name)}</strong>" on YALI AMS.</p><p><a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">Review Invitation</a></p>`,
             receiverId: m.userId,
             opened: false,
             createdAt: new Date(),
@@ -95,7 +95,7 @@ export const createGroup = async (req: AuthenticatedRequest, res: Response) => {
           return sendEmail({
             subject: "You have been invited to join a group on YALI AMS!",
             name: member.firstName,
-            message: `<p>You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.</p><p><a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">Review Invitation</a></p><p style="font-size: 14px; color: #777;">If you do not want to join this group, please ignore this.</p>`,
+            message: `<p>You have been invited to join group "<strong>${escapeHtml(group?.name)}</strong>" on YALI AMS.</p><p><a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">Review Invitation</a></p><p style="font-size: 14px; color: #777;">If you do not want to join this group, please ignore this.</p>`,
             receiver: member.email,
           });
         })
@@ -171,7 +171,7 @@ export const addMemberToGroup = async (req: AuthenticatedRequest, res: Response)
         subject: "You have been invited to join a group on YALI AMS!",
         name: user.firstName,
         message: `<p>
-             You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.
+             You have been invited to join group "<strong>${escapeHtml(group?.name)}</strong>" on YALI AMS.
           </p>
           <p>
             <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
@@ -187,7 +187,7 @@ export const addMemberToGroup = async (req: AuthenticatedRequest, res: Response)
       const notification = {
         title: "You have been invited to join a group on YALI AMS!",
         message: `<p>
-           You have been invited to join group "<strong>${group?.name}</strong>" on YALI AMS.
+           You have been invited to join group "<strong>${escapeHtml(group?.name)}</strong>" on YALI AMS.
           </p>
           <p>
             <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
@@ -234,7 +234,7 @@ export const sendGroupMessage = async (req: AuthenticatedRequest, res: Response)
       where: {
         groupId,
         userId,
-        status: "approved",
+        status: groupJoinStatusTypes.APPROVED,
       },
     });
 
@@ -293,7 +293,7 @@ export const getGroupMessages = async (req: AuthenticatedRequest, res: Response)
       where: {
         groupId,
         userId,
-        status: "approved", // enforce approved access
+        status: groupJoinStatusTypes.APPROVED,
       },
     });
 
@@ -428,7 +428,7 @@ export const removeUserFromGroup = async (req: AuthenticatedRequest, res: Respon
         subject: "You have been removed from group on YALI AMS!",
         name: user.firstName,
         message: `<p>
-             You have been removed from group "<strong>${group?.name}</strong>" on YALI AMS.
+             You have been removed from group "<strong>${escapeHtml(group?.name)}</strong>" on YALI AMS.
           </p>
           <p>
             <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
@@ -444,7 +444,7 @@ export const removeUserFromGroup = async (req: AuthenticatedRequest, res: Respon
       const notification = {
         title: "You have been removed from group on YALI AMS!",
         message: `<p>
-           You have been removed from group "<strong>${group?.name}</strong>" on YALI AMS.
+           You have been removed from group "<strong>${escapeHtml(group?.name)}</strong>" on YALI AMS.
           </p>
           <p>
             <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">

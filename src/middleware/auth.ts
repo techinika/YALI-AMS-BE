@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyToken } from "../helpers/auth";
 import { userStatusTypes } from "../Types/users";
+import { isTokenRevoked } from "../helpers/tokenStore";
 import prisma from "../helpers/prismaClient";
 
 export interface AuthenticatedRequest extends Request {
@@ -27,6 +28,10 @@ export const requireAuth = async (
 
     const decoded = verifyToken(token) as { id: string };
 
+    if (await isTokenRevoked(token)) {
+      return res.status(401).json({ message: "Session expired, please log in again" });
+    }
+
     const user = await prisma.user.findUnique({
       where: {
         id: decoded.id,
@@ -37,6 +42,7 @@ export const requireAuth = async (
       select: {
         id: true,
         email: true,
+        status: true,
         role: {
           select: {
             name: true,
@@ -45,7 +51,7 @@ export const requireAuth = async (
       },
     });
 
-    if (!user) {
+    if (!user || user.status !== userStatusTypes?.ACTIVE) {
       return res.status(401).json({ message: "User not found" });
     }
 

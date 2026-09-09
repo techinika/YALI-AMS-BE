@@ -11,6 +11,17 @@ const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379"
 
 export const aiMatchmakingQueue = new Queue("ai-matchmaking", { connection });
 
+const clampScore = (score: unknown): number => {
+  const n = Number(score);
+  if (Number.isNaN(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+};
+
+const sanitizeReason = (reason: unknown): string => {
+  if (typeof reason !== "string") return "";
+  return reason.slice(0, 200);
+};
+
 export const createAiMatchmakingWorker = () => {
   const worker = new Worker(
     "ai-matchmaking",
@@ -122,38 +133,48 @@ Return ONLY a **valid JSON object**, no commentary or explanation outside JSON.
       }
 
       const { matchedUsers = [], matchedGroups = [], aiSummary = "" } = parsed as {
-        matchedUsers: Array<{ userId: string; score?: number }>;
-        matchedGroups: Array<{ groupId: string; score?: number }>;
+        matchedUsers: Array<{ userId: string; score?: number; reason?: string }>;
+        matchedGroups: Array<{ groupId: string; score?: number; reason?: string }>;
         aiSummary: string;
       };
+
+      const validUserIds = new Set((members as Array<{ id: string }>).map((m) => m.id));
+      const validGroupIds = new Set((groups as Array<{ id: string }>).map((g) => g.id));
+
+      const sanitizedUsers = matchedUsers
+        .filter((m) => validUserIds.has(m.userId))
+        .slice(0, 6)
+        .map((match) => ({
+          requestId,
+          matchType: "user",
+          matchedUserId: match.userId,
+          score: clampScore(match.score),
+          reason: sanitizeReason(match.reason),
+        }));
+
+      const sanitizedGroups = matchedGroups
+        .filter((g) => validGroupIds.has(g.groupId))
+        .slice(0, 4)
+        .map((group) => ({
+          requestId,
+          matchType: "group",
+          matchedGroupId: group.groupId,
+          score: clampScore(group.score),
+          reason: sanitizeReason(group.reason),
+        }));
 
       await prisma.matchmakingRequest.update({
         where: { id: requestId },
         data: {
           status: "completed",
+          aiSummary: aiSummary ? String(aiSummary).slice(0, 255) : null,
           aiNotes: "Parsed successfully",
-          aiResponse: `Response parsed and matches recorded. We have ${matchedUsers.length} user matches and ${matchedGroups.length} group matches.`,
+          aiResponse: `Response parsed and matches recorded. We have ${sanitizedUsers.length} user matches and ${sanitizedGroups.length} group matches.`,
         },
       });
 
-      const userMatchItems = matchedUsers.map((match) => ({
-        requestId,
-        matchType: "user",
-        matchedUserId: match.userId,
-        score: match.score ?? 0,
-        reason: "",
-      }));
-
-      const groupMatchItems = matchedGroups.map((group) => ({
-        requestId,
-        matchType: "group",
-        matchedGroupId: group.groupId,
-        score: group.score ?? 0,
-        reason: "",
-      }));
-
       await prisma.matchmakingItem.createMany({
-        data: [...userMatchItems, ...groupMatchItems],
+        data: [...sanitizedUsers, ...sanitizedGroups],
       });
 
       try {

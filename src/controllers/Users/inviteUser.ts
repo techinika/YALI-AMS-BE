@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import sendEmail from "../../helpers/sendMail";
-import { generateToken } from "../../helpers/auth";
+import { generateResetToken } from "../../helpers/auth";
 import { userStatusTypes } from "../../Types/users";
 import prisma from "../../helpers/prismaClient";
 
@@ -31,7 +31,7 @@ export const inviteUser = async (req: Request, res: Response) => {
 
     if (existingUser && existingUser.status === userStatusTypes?.DELETED) {
       // 3. RE-INVITE: Update the existing deleted record
-      inviteToken = generateToken(existingUser);
+      inviteToken = generateResetToken(existingUser);
       targetUser = await prisma.user.update({
         where: { email },
         data: {
@@ -64,7 +64,7 @@ export const inviteUser = async (req: Request, res: Response) => {
           createdAt: new Date(),
         },
       });
-      inviteToken = generateToken(targetUser);
+      inviteToken = generateResetToken(targetUser);
       targetUser = await prisma.user.update({
         where: { id: targetUser.id },
         data: { refreshToken: inviteToken },

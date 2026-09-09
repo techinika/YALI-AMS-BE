@@ -1,16 +1,16 @@
 import { Request, Response } from "express";
-import sendEmail from "../../helpers/sendMail";
+import sendEmail, { escapeHtml } from "../../helpers/sendMail";
 import { notificationTypes } from "../notificationController";
 import { safeConnect } from "../../helpers/safeConnect";
 import { userStatusTypes } from "../../Types/users";
+import { resolveGenderName } from "../../helpers/gender";
 import prisma from "../../helpers/prismaClient";
 
 export const updateUser = async (req: Request, res: Response) => {
   const { userId } = req.params;
   const { user } = req.body;
 
-  try {
-    const existing = await prisma.user.findUnique({
+  try {    const existing = await prisma.user.findUnique({
       where: {
         id: userId,
         status: {
@@ -54,7 +54,10 @@ export const updateUser = async (req: Request, res: Response) => {
 
     if (user?.trackId) userUpdateData.track = safeConnect(user.trackId);
 
-    if (user?.genderName) userUpdateData.gender = safeConnect(user.genderName);
+    if (user?.genderName) {
+      const genderName = await resolveGenderName(user.genderName);
+      if (genderName) userUpdateData.genderName = genderName;
+    }
 
     if (user?.profileImageId)
       userUpdateData.profileImage = safeConnect(user.profileImageId);
@@ -85,7 +88,10 @@ export const updateUser = async (req: Request, res: Response) => {
       await sendEmail({
         subject: notification.title,
         name: updatedUser.firstName,
-        message: notification.message,
+        message: notificationToSend.message.replace(
+          /\[name\]/g,
+          escapeHtml(updatedUser.firstName)
+        ),
         receiver: updatedUser.email,
       });
     }

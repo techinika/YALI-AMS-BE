@@ -2,9 +2,13 @@ import { Server } from "socket.io";
 import { chatSocket } from "./chat.socket";
 import { groupSocket } from "./group.sockets";
 import { verifyToken } from "../helpers/auth";
+import { isTokenRevoked } from "../helpers/tokenStore";
 import prisma from "../helpers/prismaClient";
 import { userStatusTypes } from "../Types/users";
 import { setIO } from "./notificationEmitter";
+import { sweepSocketRateLimits } from "../helpers/socketRateLimit";
+
+const MAX_MESSAGE_BYTES = 200_000;
 
 export const initSockets = (httpServer: any) => {
   const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -17,13 +21,14 @@ export const initSockets = (httpServer: any) => {
       credentials: true,
     },
     path: "/ws/socket.io/",
+    maxHttpBufferSize: MAX_MESSAGE_BYTES,
+    pingInterval: 25_000,
+    pingTimeout: 20_000,
   });
 
   io.use(async (socket, next) => {
     try {
-      const token =
-        socket.handshake.auth?.token ||
-        socket.handshake.query?.token;
+      const token = socket.handshake.auth?.token;
 
       if (!token || typeof token !== "string") {
         return next(new Error("Authentication required"));
@@ -31,10 +36,14 @@ export const initSockets = (httpServer: any) => {
 
       const decoded = verifyToken(token) as { id: string };
 
+      if (await isTokenRevoked(token)) {
+        return next(new Error("Session expired, please log in again"));
+      }
+
       const user = await prisma.user.findUnique({
         where: {
           id: decoded.id,
-          status: { not: userStatusTypes?.DELETED },
+          status: userStatusTypes?.ACTIVE,
         },
         select: { id: true, email: true },
       });
@@ -53,15 +62,15 @@ export const initSockets = (httpServer: any) => {
 
   io.on("connection", (socket) => {
     const userId = (socket as any).userId;
-    console.log("Socket connected:", socket.id, "User:", userId);
 
     socket.join(`user-${userId}`);
+    socket.join("public");
 
     chatSocket(io, socket);
     groupSocket(io, socket);
 
     socket.on("disconnect", () => {
-      console.log("Socket disconnected:", socket.id);
+      sweepSocketRateLimits();
     });
   });
 

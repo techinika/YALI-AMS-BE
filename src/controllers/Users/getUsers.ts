@@ -107,7 +107,7 @@ export const getUserById = async (req: Request, res: Response) => {
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-    return res.json(user);
+    return res.json({ data: user });
   } catch (error) {
     return res.status(500).json({ error: "Internal Server Error" });
   }

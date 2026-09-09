@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../../helpers/prismaClient";
 import { groupJoinStatusTypes } from "../../Types/chat";
-import sendEmail from "../../helpers/sendMail";
+import sendEmail, { escapeHtml } from "../../helpers/sendMail";
 import { AuthenticatedRequest } from "../../middleware/auth";
 
 export const requestToJoinGroup = async (req: AuthenticatedRequest, res: Response) => {
@@ -29,13 +29,16 @@ export const requestToJoinGroup = async (req: AuthenticatedRequest, res: Respons
     });
 
     if (existingMembership) {
-      if (existingMembership.status === "approved") {
+      if (existingMembership.status === groupJoinStatusTypes.APPROVED) {
         return res
           .status(400)
           .json({ message: "You are already a member of this group." });
       }
 
-      if (existingMembership.status === "admin_approval_pending") {
+      if (
+        existingMembership.status ===
+        groupJoinStatusTypes.ADMIN_APPROVAL_PENDING
+      ) {
         return res.status(400).json({
           message: "Your request to join this group is still pending approval.",
         });
@@ -71,7 +74,7 @@ export const requestToJoinGroup = async (req: AuthenticatedRequest, res: Respons
         subject: "New group join request on YALI AMS!",
         name: admin?.firstName,
         message: `<p>
-            A user has requested to join your group "<strong>${group.name}</strong>".
+            A user has requested to join your group "<strong>${escapeHtml(group.name)}</strong>".
           </p>
           <p>
             <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
@@ -87,7 +90,7 @@ export const requestToJoinGroup = async (req: AuthenticatedRequest, res: Respons
       const notification = {
         title: "New group join request on YALI AMS!",
         message: `<p>
-            A user has requested to join your group "<strong>${group.name}</strong>".
+            A user has requested to join your group "<strong>${escapeHtml(group.name)}</strong>".
           </p>
           <p>
             <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
@@ -157,7 +160,7 @@ export const approveGroupJoinRequest = async (req: AuthenticatedRequest, res: Re
     await prisma.groupMember.update({
       where: { id: membership.id },
       data: {
-        status: "approved",
+        status: groupJoinStatusTypes.APPROVED,
       },
     });
 
@@ -168,7 +171,7 @@ export const approveGroupJoinRequest = async (req: AuthenticatedRequest, res: Re
         subject: "Your group join request was approved on YALI AMS!",
         name: member?.firstName,
         message: `<p>
-            Your request to join group "<strong>${group.name}</strong>" has been approved.
+            Your request to join group "<strong>${escapeHtml(group.name)}</strong>" has been approved.
           </p>
           <p>
             <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
@@ -184,7 +187,7 @@ export const approveGroupJoinRequest = async (req: AuthenticatedRequest, res: Re
       const notification = {
         title: "New group join request on YALI AMS!",
         message: `<p>
-            Your request to join group "<strong>${group.name}</strong>" has been approved.
+            Your request to join group "<strong>${escapeHtml(group.name)}</strong>" has been approved.
           </p>
           <p>
             <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
@@ -257,7 +260,7 @@ export const acceptGroupInvitation = async (req: AuthenticatedRequest, res: Resp
         subject: "Member accepted invitation to join group on YALI AMS!",
         name: admin?.firstName,
         message: `<p>
-            Member ${member?.firstName} has accepted your invitation to join group "<strong>${group?.name}</strong>" on YALI AMS.
+            Member ${escapeHtml(member?.firstName)} has accepted your invitation to join group "<strong>${escapeHtml(group?.name)}</strong>" on YALI AMS.
           </p>
           <p>
             <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
@@ -273,7 +276,7 @@ export const acceptGroupInvitation = async (req: AuthenticatedRequest, res: Resp
       const notification = {
         title: "Member accepted invitation to join group on YALI AMS!",
         message: `<p>
-           Member ${member?.firstName} has accepted your invitation to join group "<strong>${group?.name}</strong>" on YALI AMS.
+           Member ${escapeHtml(member?.firstName)} has accepted your invitation to join group "<strong>${escapeHtml(group?.name)}</strong>" on YALI AMS.
           </p>
           <p>
             <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
@@ -347,7 +350,7 @@ export const declineGroupInvitation = async (req: AuthenticatedRequest, res: Res
         subject: "Member rejected invitation to join group on YALI AMS!",
         name: admin?.firstName,
         message: `<p>
-            Member ${member?.firstName} has rejected your invitation to join group "<strong>${group?.name}</strong>" on YALI AMS.
+            Member ${escapeHtml(member?.firstName)} has rejected your invitation to join group "<strong>${escapeHtml(group?.name)}</strong>" on YALI AMS.
           </p>
           <p>
             <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
@@ -363,7 +366,7 @@ export const declineGroupInvitation = async (req: AuthenticatedRequest, res: Res
       const notification = {
         title: "Member rejected invitation to join group on YALI AMS!",
         message: `<p>
-           Member ${member?.firstName} has accepted your invitation to join group "<strong>${group?.name}</strong>" on YALI AMS.
+           Member ${escapeHtml(member?.firstName)} has accepted your invitation to join group "<strong>${escapeHtml(group?.name)}</strong>" on YALI AMS.
           </p>
           <p>
             <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
@@ -449,7 +452,7 @@ export const rejectJoinRequest = async (req: AuthenticatedRequest, res: Response
         subject: "Your request to join group on YALI AMS is rejected!",
         name: member?.firstName,
         message: `<p>
-             Your request to join group "<strong>${group?.name}</strong>" on YALI AMS is rejected by Admin.
+             Your request to join group "<strong>${escapeHtml(group?.name)}</strong>" on YALI AMS is rejected by Admin.
           </p>
           <p>
             <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">
@@ -465,7 +468,7 @@ export const rejectJoinRequest = async (req: AuthenticatedRequest, res: Response
       const notification = {
         title: "Your request to join group on YALI AMS is rejected!",
         message: `<p>
-           Your request to join group "<strong>${group?.name}</strong>" on YALI AMS is rejected by Admin.
+           Your request to join group "<strong>${escapeHtml(group?.name)}</strong>" on YALI AMS is rejected by Admin.
           </p>
           <p>
             <a href="${process.env.FRONTEND_URL}/dashboard/chat/groups">

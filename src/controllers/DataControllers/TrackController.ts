@@ -1,9 +1,12 @@
 import { Request, Response } from "express";
 import prisma from "../../helpers/prismaClient";
+import { getOrSet, invalidate } from "../../helpers/cache";
 
 export const getTracks = async (req: Request, res: Response) => {
   try {
-    const tracks = await prisma.track.findMany();
+    const tracks = await getOrSet("ref:tracks", () =>
+      prisma.track.findMany({ orderBy: { name: "asc" } }),
+    );
     res
       .status(200)
       .send({ message: "Tracks", data: tracks, count: tracks.length });
@@ -20,7 +23,8 @@ export const addTrack = async (req: Request, res: Response) => {
         name: req.body.name,
       },
     });
-    res.status(201).send({ message: "Cohort", data: track });
+    await invalidate("ref:tracks");
+    res.status(201).send({ message: "Track", data: track });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ error: "Failed to add track" });
@@ -33,6 +37,7 @@ export const deleteTracks = async (req: Request, res: Response) => {
     const track = await prisma.track.delete({
       where: { id: id },
     });
+    await invalidate("ref:tracks");
     res.status(200).send({ message: "Track deleted", data: track });
   } catch (error) {
     console.log(error);

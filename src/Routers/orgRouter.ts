@@ -16,9 +16,9 @@ import { requireAdmin } from "../middleware/auth";
 const router = Router();
 
 router.get("/", getOrganizations);
-router.get("/:id", getOrganizationById);
-router.get("/user/:id", getOrganizationsForUser);
 router.get("/user/:id/:orgId", getOrganizationsForUserById);
+router.get("/user/:id", getOrganizationsForUser);
+router.get("/:id", getOrganizationById);
 router.post("/new", requireAdmin, createNewOrganization);
 router.put("/update", requireAdmin, updateOrganization);
 router.post("/ws/add", requireAdmin, addWStoOrganization);

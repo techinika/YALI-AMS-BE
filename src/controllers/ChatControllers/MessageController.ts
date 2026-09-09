@@ -107,34 +107,60 @@ export const getPrivateChats = async (req: AuthenticatedRequest, res: any) => {
       return res.status(403).json({ error: "You can only view your own chats" });
     }
 
-    const messages = await prisma.message.findMany({
-      where: {
-        public: false,
-        OR: [{ senderId: targetId }, { receiverId: targetId }],
-      },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            profileImage: true,
-          },
-        },
-        receiver: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            profileImage: true,
-          },
-        },
-      },
-    });
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit as string) || 200));
+    const skip = (page - 1) * limit;
 
-    res
-      .status(200)
-      .send({ message: "Messages", data: messages, count: messages.length });
+    const [messages, total] = await Promise.all([
+      prisma.message.findMany({
+        where: {
+          public: false,
+          OR: [{ senderId: targetId }, { receiverId: targetId }],
+        },
+        select: {
+          id: true,
+          message: true,
+          senderId: true,
+          receiverId: true,
+          public: true,
+          createdAt: true,
+          sender: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              profileImage: true,
+            },
+          },
+          receiver: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              profileImage: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.message.count({
+        where: {
+          public: false,
+          OR: [{ senderId: targetId }, { receiverId: targetId }],
+        },
+      }),
+    ]);
+
+    res.status(200).send({
+      message: "Messages",
+      data: messages,
+      count: messages.length,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ error: "Internal Server Error" });
@@ -176,7 +202,7 @@ export const sendMessage = async (req: AuthenticatedRequest, res: any) => {
 
     const io = getIO();
     if (messageData?.receiverId == "") {
-      io?.emit("new-message", message);
+      io?.to("public").emit("new-message", message);
     } else {
       io?.to(`user-${senderId}`).emit("new-message", message);
       io?.to(`user-${messageData?.receiverId}`).emit("new-message", message);

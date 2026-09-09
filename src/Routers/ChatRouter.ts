@@ -43,12 +43,12 @@ chatRouter.get("/group/messages/:groupId/:userId", getGroupMessages);
 chatRouter.post("/group/messages/:groupId/:userId", sendGroupMessage);
 
 chatRouter.get("/group/all", getAllGroups);
-chatRouter.get("/group/:groupId", getGroupById);
 chatRouter.get("/group/my/:userId", getMyGroups);
 chatRouter.get(
   "/group/to-invite/:currentUserId/:activeGroupId",
   getUsersToInvite
 );
+chatRouter.get("/group/:groupId", getGroupById);
 
 chatRouter.post("/group/join-request/", requestToJoinGroup);
 chatRouter.post("/group/approve-request/admin", approveGroupJoinRequest);

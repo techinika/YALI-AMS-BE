@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { generateToken, generateResetToken, hashPassword, verifyToken } from "../helpers/auth";
+import { revokeToken } from "../helpers/tokenStore";
 import sendEmail from "../helpers/sendMail";
 import { userStatusTypes } from "../Types/users";
 import prisma from "../helpers/prismaClient";
@@ -74,6 +75,11 @@ const AuthController: AuthController = {
       if (!user) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
+      if (user.status !== userStatusTypes?.ACTIVE) {
+        return res.status(403).json({
+          error: "Account is not active. Please contact support.",
+        });
+      }
       const passwordMatch = await bcrypt.compare(password, user.password);
       if (!passwordMatch) {
         return res.status(401).json({ error: "Invalid credentials" });
@@ -135,6 +141,12 @@ const AuthController: AuthController = {
 
       const newPassword = await hashPassword(password);
 
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.startsWith("Bearer ")
+        ? authHeader.split(" ")[1]
+        : undefined;
+      await revokeToken(token);
+
       const updatedUser = await prisma.user.update({
         where: {
           id: user.id,
@@ -148,7 +160,7 @@ const AuthController: AuthController = {
       if (updatedUser) {
         return res.status(200).json({
           status: 200,
-          message: "Password change is successful",
+          message: "Password change is successful, please log in again.",
         });
       } else {
         return res
@@ -166,6 +178,13 @@ const AuthController: AuthController = {
       if (!userId) {
         return res.status(401).json({ error: "Authentication required" });
       }
+
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.startsWith("Bearer ")
+        ? authHeader.split(" ")[1]
+        : undefined;
+      await revokeToken(token);
+
       const user = await prisma.user.findUnique({
         where: {
           id: userId,
@@ -307,7 +326,7 @@ const AuthController: AuthController = {
         data: {
           password: hashedPassword,
           refreshToken: null,
-          status: "active",
+          status: userStatusTypes?.ACTIVE,
         },
       });
 

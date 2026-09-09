@@ -39,8 +39,8 @@ Interactive API documentation is available at `/api/docs` when the server is run
 | DELETE | `/api/users/:userId` | Delete user | 🔒 Admin only |
 | POST | `/api/users/profile` | Create user profile | Any authenticated user |
 | POST | `/api/users/invite` | Invite user | 🔒 Admin only |
-| POST | `/api/users/import` | Import users | 🔒 Admin only |
-| POST | `/api/users/export/all` | Export all users | Any authenticated user |
+| POST | `/api/users/import` | Import users (max 500 per batch) | 🔒 Admin only |
+| POST | `/api/users/export/all` | Export all users to Excel (file auto-expires after 24h) | 🔒 Admin only |
 | POST | `/api/users/role/:userId` | Change user role | 🔒 Admin only |
 
 ### Organization Endpoints
@@ -121,36 +121,54 @@ Interactive API documentation is available at `/api/docs` when the server is run
 - JWT tokens with 24-hour expiry; payload contains only user `id`
 - **SECRET_KEY is required** — server refuses to start if the env var is missing
 - All authenticated endpoints verify token against DB user status
-- Password reset tokens are validated against the stored `refreshToken` in the database; revoked tokens are rejected
+- Only `ACTIVE` users can log in or connect via socket; `INACTIVE`/`INVITED` accounts are rejected (`403`) until activated
+- Password reset tokens are validated against the stored `refreshToken` in the database; tokens are rejected on mismatch
+- **Token revocation:** on logout and password change the JWT is added to a Redis blocklist (`jwt:blk:*` via `src/helpers/tokenStore.ts`) and rejected until its natural expiry, so"logged-out" tokens become useless immediately
 
 ### Authorization (RBAC)
 - `requireAuth` middleware on all `/api/*` routes except login, request-link, reset-password
-- `requireAdmin` middleware on sensitive operations: user delete, update, role change, invite, import
+- `requireAdmin` middleware on sensitive operations: user delete, update, role change, invite, import, export
 
 ### Rate Limiting
 - Global API rate limiter: 100 requests / 15 min (configurable via env vars)
 - Auth-specific rate limiter: 10 requests / 15 min on login, request-link, and reset-password
+- Upload limiter: 30 uploads / 15 min per IP (configurable via `UPLOAD_RATE_LIMIT_*`)
+- Per-socket rate limits on `join-group`/`send-message`/`join-matchmaking` events with sweep on disconnect (`src/helpers/socketRateLimit.ts`)
+
+### Upload Security
+- Uploads are authenticated, size-capped at 10 MB (`MAX_FILE_BYTES`), and restricted to a MIME whitelist (jpeg, png, webp, gif) — oversized uploads return `413`
+- The file creator is taken from the authenticated JWT (`req.user.id`), never from the request body
+- Uploaded temp files are always cleaned up, including on error paths
 
 ### Data Protection
 - User queries exclude `password`, `token`, and `refreshToken` fields from all responses
 - User IDs are server-generated (UUIDs); client-supplied IDs are ignored
 - Group operations (send message, create group, remove member) use the authenticated user's ID from the JWT, not URL params or request body
+- Activity logs are written asynchronously (fire-and-forget) with sanitized arguments and never block the request they audit
 - DB credential logging removed
 
+### Output Sanitization / XSS
+- Notification and email content built from user-controlled CSV fields (names, group names) is HTML-escaped via `escapeHtml` before being stored or sent (import, invite, group join/invite emails)
+
 ### Socket Authentication
-- Socket.IO connections are authenticated with the same JWT (`socket.handshake.auth.token` or `socket.handshake.query.token`) via middleware in `src/sockets/index.ts`; unauthenticated sockets are rejected
+- Socket.IO connections are authenticated with the same JWT from `socket.handshake.auth.token` only (the query-parameter fallback was removed) via middleware in `src/sockets/index.ts`; unauthenticated or non-`ACTIVE` sockets are rejected
+- Hardened limits: 200 KB max message buffer, `pingInterval: 25s` / `pingTimeout: 20s`, per-socket rate limiting, and message validation (non-empty, ≤ 4,000 chars) in both private and group sockets
 - Each socket is joined to a per-user room (`user-<userId>`) so controllers can target individuals
+- Public/community messages are broadcast to a dedicated `public` room instead of a global `io.emit`
 
 ---
 
 ## Performance Optimizations
 
 - **Database Indexes:** Added indexes on frequently queried fields (cohortId, trackId, genderName, roleId, createdAt, etc.) to improve query performance
-- **Connection Pool:** Increased default connection pool size from 5 to 20 for better concurrency
-- **N+1 Query Fixes:** Optimized GroupChats and AIMatchmaking controllers to use batch queries instead of sequential calls
+- **Connection Pool:** Connection pool size is configurable via `CONNECTION_LIMIT` and clamped to 5–50 (default 20) to prevent pool exhaustion under burst load
+- **N+1 Query Fixes:** Optimized GroupChats, AIMatchmaking, and bulk-import controllers to use batch queries instead of sequential calls
+- **Bulk Import:** reference tables (countries, districts, sectors, states, cohorts, tracks, working sectors) are loaded **once** into in-memory maps; existing emails are pre-checked with a single query, each user is created in **one** write (self-assigned UUID + inline reset token), and rows process in bounded batches of 10 with parallel side effects
 - **Rate Limiting:** API rate limiting middleware protecting endpoints (100 requests/15 min default)
-- **Background Jobs:** AI matchmaking requests are processed asynchronously via BullMQ workers
-- **Redis Response Caching:** Added a `getOrSet()` helper (`src/helpers/cache.ts`) with a 5-minute TTL; all 7 location/reference-data endpoints (countries, states, districts, sectors) are cached and return results ordered by name. Falls back gracefully to the database if Redis is unreachable
+- **Background Jobs:** AI matchmaking requests are processed asynchronously via BullMQ workers; outgoing emails share a dedicated BullMQ `emails` queue (concurrency 3, 3 attempts with exponential backoff, `sendEmail` returns before SMTP)
+- **Response Compression:** `compression` middleware enabled globally for JSON/static responses
+- **Redis Response Caching:** added a `getOrSet()` helper (`src/helpers/cache.ts`) with a 5-minute TTL; genders, cohorts, tracks, and working sectors are cached alongside the location/reference-data endpoints (countries, states, districts, sectors) and are invalidated on mutation. Falls back gracefully to the database if Redis is unreachable
+- **Private Chat Pagination:** `GET /api/chat/:id` is paginated (default 200, max 500, newest-first) with parallel counts and a slimmer `select` instead of nested `include`
 - **Deterministic Ordering:** Location/reference-data queries now use `orderBy: { name: "asc" }` for stable, predictable dropdown ordering
 
 ## Real-time Notifications
@@ -161,6 +179,13 @@ Interactive API documentation is available at `/api/docs` when the server is run
 - **Single-writer messaging:** messages are persisted once by the REST controllers (`sendMessage`, `sendGroupMessage`) and then broadcast over sockets via `getIO()` — the client no longer double-writes through socket handlers
 - **Matchmaking lifecycle notifications:** "AI Matchmaking Started" on request creation, "AI Matchmaking Completed"/"Failed" from the BullMQ worker (both the in-job failure branches and the `worker.on("failed")` handler)
 - **Profile update cron:** the hourly `generateProfileUpdateNotifications` job now emits a `notification:new` refetch signal to affected users
+
+## Email Delivery
+
+- **Queue-first:** `sendEmail()` enqueues a BullMQ `emails` job and returns immediately — the HTTP request never waits on SMTP; if Redis is unavailable it falls back to a synchronous send
+- **Hardened transport** (`src/helpers/mailer.ts`): single pooled transporter (max 3 connections, 50 messages each, 10s/10s/30s timeouts), `secure` derived from the port, and `EMAIL_FROM_NAME` configurable
+- Every email includes a plain-text alternative; user-controlled fields are `escapeHtml`-escaped before interpolation
+- **Exports** are uploaded to Cloudinary with a 24-hour `expires_at`, so exported PII does not persist publicly after download
 
 ---
 
@@ -222,11 +247,12 @@ npm start
 | `DATABASE_USER` | Database username | - | Yes |
 | `DATABASE_PASSWORD` | Database password | - | Yes |
 | `DATABASE_NAME` | Database name | - | Yes |
-| `CONNECTION_LIMIT` | Database connection pool size | 100 | No |
+| `CONNECTION_LIMIT` | Database connection pool size (clamped to 5–50) | 20 | No |
 | `EMAIL_HOST` | SMTP host for outgoing email | - | No |
 | `EMAIL_PORT` | SMTP port | 465 | No |
 | `EMAIL_USERNAME` | SMTP username | - | No |
 | `EMAIL_PASSWORD` | SMTP password | - | No |
+| `EMAIL_FROM_NAME` | From-name used on outgoing emails | - | No |
 | `CLOUDINARY_NAME` | Cloudinary cloud name | - | No |
 | `CLOUDINARY_KEY` | Cloudinary API key | - | No |
 | `CLOUDINARY_SECRET` | Cloudinary API secret | - | No |
@@ -238,12 +264,14 @@ npm start
 | `RATE_LIMIT_MAX` | Max requests per window | 100 | No |
 | `AUTH_RATE_LIMIT_WINDOW_MS` | Auth rate limit window (ms) | 900000 | No |
 | `AUTH_RATE_LIMIT_MAX` | Max auth requests per window | 10 | No |
+| `UPLOAD_RATE_LIMIT_WINDOW_MS` | Upload rate limit window (ms) | 900000 | No |
+| `UPLOAD_RATE_LIMIT_MAX` | Max uploads per window | 30 | No |
 
 ---
 
 ## Redis
 
-Redis powers two features: **BullMQ** background jobs (AI matchmaking) and **response caching** for reference data (`src/helpers/cache.ts`, 5-minute TTL). The app falls back to the database gracefully if Redis is unreachable, so the server still boots without it — but caching and queued jobs are disabled.
+Redis powers four features: **BullMQ** background jobs (AI matchmaking + the outgoing-email queue), **JWT token revocation** (`src/helpers/tokenStore.ts`), and **response caching** for reference data (`src/helpers/cache.ts`, 5-minute TTL). The app falls back gracefully if Redis is unreachable — email sends become synchronous, the token blocklist is skipped (stale tokens may survive until JWT expiry), caching re-reads the DB, and queued jobs are disabled — so the server still boots without it, but caching, revocation, and queue throughput are degraded.
 
 Quick setup on Ubuntu/Debian:
 

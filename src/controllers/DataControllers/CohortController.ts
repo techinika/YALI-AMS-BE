@@ -1,9 +1,12 @@
 import { Request, Response } from "express";
 import prisma from "../../helpers/prismaClient";
+import { getOrSet, invalidate } from "../../helpers/cache";
 
 export const getCohorts = async (req: Request, res: Response) => {
   try {
-    const cohorts = await prisma.cohort.findMany();
+    const cohorts = await getOrSet("ref:cohorts", () =>
+      prisma.cohort.findMany({ orderBy: { name: "asc" } }),
+    );
     res
       .status(200)
       .send({ message: "Cohorts", data: cohorts, count: cohorts.length });
@@ -15,15 +18,14 @@ export const getCohorts = async (req: Request, res: Response) => {
 
 export const addCohorts = async (req: Request, res: Response) => {
   try {
-    const cohorts = await prisma.cohort.findMany();
-    const existingCohort = cohorts.find(
-      (cohort) => cohort.name == req.body.name
-    );
     if (!req.body.name || !req.body.description) {
       return res
         .status(400)
         .send({ message: "Cohort Name and Description are required." });
     }
+    const existingCohort = await prisma.cohort.findFirst({
+      where: { name: req.body.name },
+    });
     if (existingCohort) {
       return res.status(400).send({ message: "Cohort already exists." });
     }
@@ -33,6 +35,8 @@ export const addCohorts = async (req: Request, res: Response) => {
         description: req.body.description,
       },
     });
+
+    await invalidate("ref:cohorts");
 
     return res.status(201).send({ message: "Cohort", data: cohort });
   } catch (error: any) {
@@ -47,6 +51,7 @@ export const deleteCohorts = async (req: Request, res: Response) => {
     const cohort = await prisma.cohort.delete({
       where: { id: Number(id) },
     });
+    await invalidate("ref:cohorts");
     res.status(200).send({ message: "Cohort deleted", data: cohort });
   } catch (error) {
     console.log(error);

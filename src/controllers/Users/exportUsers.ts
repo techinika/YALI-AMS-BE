@@ -3,6 +3,7 @@ import prisma from "../../helpers/prismaClient";
 import cloudinary from "../../helpers/cloudinary";
 import { Request, Response } from "express";
 import { Readable } from "stream";
+import { userStatusTypes } from "../../Types/users";
 
 function buildBaseRow(user: any, include: boolean) {
   return {
@@ -47,6 +48,7 @@ const uploadBufferToCloudinary = (
         public_id: filename,
         format: "xlsx",
         use_filename: true,
+        expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
       },
       (error, result) => {
         if (error) reject(error);
@@ -58,11 +60,14 @@ const uploadBufferToCloudinary = (
   });
 };
 
-export const exportMembersWithOrganizations = async (
-  requestingUserId: string
-) => {
+export const exportMembersWithOrganizations = async () => {
   const users = await prisma.user.findMany({
-    where: {},
+    where: {
+      status: {
+        not: userStatusTypes?.DELETED,
+      },
+    },
+    orderBy: { createdAt: "asc" },
     include: {
       gender: true,
       residentCountry: true,
@@ -71,7 +76,6 @@ export const exportMembersWithOrganizations = async (
       state: true,
       cohort: true,
       track: true,
-      profileImage: true,
 
       userOrganizations: {
         include: {
@@ -181,9 +185,8 @@ export const exportMembersController = async (req: Request, res: Response) => {
     if (!req.user) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    const userId = req.user.id;
 
-    const result = await exportMembersWithOrganizations(userId);
+    const result = await exportMembersWithOrganizations();
 
     res.json({
       success: true,

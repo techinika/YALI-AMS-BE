@@ -32,6 +32,27 @@ export async function getOrSet<T>(
   return data;
 }
 
+export async function redisGet(key: string): Promise<string | null> {
+  try {
+    if (redis.status === "ready") {
+      return await redis.get(key);
+    }
+  } catch {}
+  return null;
+}
+
+export async function redisSetex(
+  key: string,
+  ttl: number,
+  value: string
+): Promise<void> {
+  try {
+    if (redis.status === "ready") {
+      await redis.setex(key, ttl, value);
+    }
+  } catch {}
+}
+
 export async function invalidate(key: string) {
   try {
     if (redis.status === "ready") {

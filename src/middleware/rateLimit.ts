@@ -15,3 +15,11 @@ export const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+export const uploadLimiter = rateLimit({
+  windowMs: Number(process.env.UPLOAD_RATE_LIMIT_WINDOW_MS) || 60 * 60 * 1000,
+  max: Number(process.env.UPLOAD_RATE_LIMIT_MAX) || 30,
+  message: { message: "Too many uploads, please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

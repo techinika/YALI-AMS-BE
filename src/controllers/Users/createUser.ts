@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import crypto from "crypto";
 import sendEmail from "../../helpers/sendMail";
-import { generateToken } from "../../helpers/auth";
+import { generateResetToken } from "../../helpers/auth";
 import { notificationTypes } from "../notificationController";
 import { userStatusTypes } from "../../Types/users";
+import { resolveGenderName } from "../../helpers/gender";
 import prisma from "../../helpers/prismaClient";
 
 const CreateUserProfile = async (req: Request, res: Response) => {
@@ -39,7 +40,9 @@ const CreateUserProfile = async (req: Request, res: Response) => {
         .json({ error: "User with this email already exists" });
     }
 
-    const refreshToken = generateToken(user);
+    const genderName = await resolveGenderName(user?.genderId ?? 1);
+
+    const refreshToken = generateResetToken(user);
     const userId = crypto.randomUUID();
 
     const createdUser = await prisma.user.create({
@@ -71,9 +74,7 @@ const CreateUserProfile = async (req: Request, res: Response) => {
         phoneNumber: user.phoneNumber,
         whatsappNumber: user.whatsappNumber,
         gender: {
-          connect: {
-            id: user.genderId ? +user?.genderId : 1,
-          },
+          connect: { name: genderName ?? "Not Specified" },
         },
         nearestLandmark: user.nearestLandmark,
         cohort: { connect: { id: user.cohortId ? +user?.cohortId : 1 } },
@@ -92,7 +93,7 @@ const CreateUserProfile = async (req: Request, res: Response) => {
           },
         },
         password: undefined,
-        status: "inactive",
+        status: userStatusTypes?.INACTIVE,
         refreshToken: refreshToken,
         facebook: user?.facebook || "",
         instagram: user?.instagram || "",
@@ -122,11 +123,13 @@ const CreateUserProfile = async (req: Request, res: Response) => {
 
       const notification = {
         title: "ACCOUNT: Your new account has been created!",
-        message: notificationToSend!.message.replace(
-          /\[name\]/g,
-          createdUser?.firstName
-        ),
-        receiverId: createdUser?.id,
+        message: notificationToSend?.message
+          ? notificationToSend.message.replace(
+              /\[name\]/g,
+              createdUser.firstName
+            )
+          : `Hi ${createdUser.firstName}, your YALI AMS account has been created!`,
+        receiverId: createdUser.id,
         opened: false,
         createdAt: new Date(),
       };

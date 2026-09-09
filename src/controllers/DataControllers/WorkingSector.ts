@@ -1,11 +1,14 @@
 import { Request, Response } from "express";
 import prisma from "../../helpers/prismaClient";
+import { getOrSet, invalidate } from "../../helpers/cache";
 
 export const getWorkingSector = async (req: Request, res: Response) => {
   try {
-    const workingSectors = await prisma.workingSector.findMany();
+    const workingSectors = await getOrSet("ref:working-sectors", () =>
+      prisma.workingSector.findMany({ orderBy: { name: "asc" } }),
+    );
     res.status(200).send({
-      message: "Tracks",
+      message: "Working Sectors",
       data: workingSectors,
       count: workingSectors.length,
     });
@@ -22,6 +25,7 @@ export const addWorkingSector = async (req: Request, res: Response) => {
         name: req.body.name,
       },
     });
+    await invalidate("ref:working-sectors");
     res.status(201).send({ message: "WorkingSector", data: sector });
   } catch (error) {
     console.log(error);
@@ -35,6 +39,7 @@ export const deleteWorkingSector = async (req: Request, res: Response) => {
     const sector = await prisma.workingSector.delete({
       where: { id: id },
     });
+    await invalidate("ref:working-sectors");
     res.status(200).send({ message: "WorkingSector deleted", data: sector });
   } catch (error) {
     console.log(error);

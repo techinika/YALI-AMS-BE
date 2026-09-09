@@ -1,36 +1,17 @@
-import nodemailer from "nodemailer";
 import { Email } from "../Types/email";
+import {
+  emailEnabled,
+  escapeHtml,
+  htmlToText,
+  sendMailSync,
+} from "./mailer";
+import { enqueueEmail, isEmailQueueReady } from "./emailQueue";
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT),
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USERNAME,
-    pass: process.env.EMAIL_PASSWORD,
-  },
-});
+function buildMessage(email: Email) {
+  const safeName = escapeHtml(email?.name || "");
+  const safeMessage = email?.message || "";
 
-function escapeHtml(text: string): string {
-  if (!text) return "";
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-async function sendEmail(replacements: Email) {
-  try {
-    const safeName = escapeHtml(replacements?.name || "");
-    const safeMessage = replacements?.message || "";
-
-    const info = await transporter.sendMail({
-      from: `"Alumni Management System" <${process.env.EMAIL_USERNAME}>`,
-      to: replacements?.receiver,
-      subject: replacements?.subject,
-      html: `
+  const html = `
     <html>
       <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px;">
@@ -49,20 +30,49 @@ async function sendEmail(replacements: Email) {
           <footer style="background-color: #f4f4f4; padding: 10px; text-align: center; color: #777; border-radius: 0 0 8px 8px;">
             <p style="margin: 0; font-size: 12px;">&copy; ${new Date().getFullYear()} Alumni Management System. All rights reserved.</p>
             <p style="margin: 0; font-size: 12px;">
-              <a href="#" style="color: #0073e6; text-decoration: none;">Unsubscribe</a> | 
-              <a href="#" style="color: #0073e6; text-decoration: none;">Privacy Policy</a>
+              <a href="${process.env.FRONTEND_URL || "#"}" style="color: #0073e6; text-decoration: none;">Unsubscribe</a> |
+              <a href="${process.env.FRONTEND_URL || "#"}/privacy" style="color: #0073e6; text-decoration: none;">Privacy Policy</a>
             </p>
           </footer>
         </div>
       </body>
     </html>
-  `,
-    });
+  `;
 
+  return { html, text: htmlToText(html) };
+}
+
+async function sendEmail(replacements: Email) {
+  if (!emailEnabled) {
+    console.warn("[email] service not configured; skipping:", replacements?.subject);
+    return { status: 503, message: "Email service not configured" };
+  }
+
+  const { html, text } = buildMessage(replacements);
+
+  try {
+    if (isEmailQueueReady()) {
+      await enqueueEmail({
+        receiver: replacements.receiver,
+        subject: replacements.subject,
+        html,
+        text,
+      });
+      return { status: 200, queued: true };
+    }
+
+    const info = await sendMailSync({
+      to: replacements.receiver,
+      subject: replacements.subject,
+      html,
+      text,
+    });
     return { status: 200, messageId: info.messageId };
   } catch (error: any) {
-    return { status: 500, message: error.message };
+    console.error("[email] failed:", error?.message);
+    return { status: 500, message: error?.message };
   }
 }
 
 export default sendEmail;
+export { escapeHtml, emailEnabled };

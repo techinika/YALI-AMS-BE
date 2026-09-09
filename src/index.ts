@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from "express";
 import route from "./Routers";
 import http from "http";
 import bodyParser from "body-parser";
+import compression from "compression";
 const fileUpload = require("express-fileupload");
 import cors from "cors";
 import helmet from "helmet";
@@ -12,6 +13,7 @@ import { initSockets } from "./sockets";
 import { prismaContext } from "./helpers/prisma-context";
 import { apiLimiter } from "./middleware/rateLimit";
 import { createAiMatchmakingWorker } from "./helpers/queue";
+import { createEmailWorker } from "./helpers/emailQueue";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./helpers/swagger";
 import prisma from "./helpers/prismaClient";
@@ -54,6 +56,7 @@ const corsOptions: cors.CorsOptions = {
 
 app.use(helmet());
 app.use(cors(corsOptions));
+app.use(compression());
 
 app.use(
   fileUpload({
@@ -116,6 +119,7 @@ server.listen(PORT, () => {
 });
 
 createAiMatchmakingWorker();
+createEmailWorker();
 
 cron.schedule("0 * * * *", async () => {
   console.log("Cron Ready!");

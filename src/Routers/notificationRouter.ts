@@ -11,11 +11,11 @@ import { requireAuth, requireAdmin } from "../middleware/auth";
 
 const router = Router();
 
+router.get("/unopened/:userId", requireAuth, getUnopenedNotifications);
+router.get("/update/setup/one/:usage", requireAuth, getOneNotificationSetups);
+router.get("/update/setup", requireAdmin, getAllNotificationSetups);
+router.put("/update/setup", requireAdmin, updateNotificationDetails);
 router.get("/:userId", requireAuth, getUsersNotifications);
 router.post("/", requireAuth, openNotification);
-router.get("/unopened/:userId", requireAuth, getUnopenedNotifications);
-router.get("/update/setup", requireAdmin, getAllNotificationSetups);
-router.get("/update/setup/one/:usage", requireAuth, getOneNotificationSetups);
-router.put("/update/setup", requireAdmin, updateNotificationDetails);
 
 export default router;
