@@ -14,6 +14,7 @@ import { prismaContext } from "./helpers/prisma-context";
 import { apiLimiter } from "./middleware/rateLimit";
 import { createAiMatchmakingWorker } from "./helpers/queue";
 import { createEmailWorker } from "./helpers/emailQueue";
+import { createUserImportWorker } from "./helpers/importQueue";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./helpers/swagger";
 import prisma from "./helpers/prismaClient";
@@ -120,6 +121,7 @@ server.listen(PORT, () => {
 
 createAiMatchmakingWorker();
 createEmailWorker();
+createUserImportWorker();
 
 cron.schedule("0 * * * *", async () => {
   console.log("Cron Ready!");

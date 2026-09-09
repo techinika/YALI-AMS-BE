@@ -5,7 +5,7 @@ import prisma from "../../helpers/prismaClient";
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit as string) || 100));
     const skip = (page - 1) * limit;
 
     const [users, total] = await Promise.all([

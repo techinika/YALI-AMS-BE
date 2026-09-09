@@ -25,6 +25,7 @@ Interactive API documentation is available at `/api/docs` when the server is run
 |--------|----------|-------------|:------------:|
 | POST | `/api/auth/login` | User login | Yes (10/15min) |
 | POST | `/api/auth/logout` | User logout (auth required) | No |
+| POST | `/api/auth/me/extend` | Extend an expiring session — re-issues a fresh 24h JWT while the presented token is still valid, not blocklisted, and the user is `ACTIVE` | No |
 | POST | `/api/auth/change-pass` | Change password (auth required) | No |
 | POST | `/api/auth/request-link` | Request password reset | Yes (10/15min) |
 | POST | `/api/auth/reset-password` | Reset password with token | Yes (10/15min) |
@@ -33,13 +34,13 @@ Interactive API documentation is available at `/api/docs` when the server is run
 
 | Method | Endpoint | Description | Access |
 |--------|----------|-------------|--------|
-| GET | `/api/users` | Get all users (excludes passwords/tokens) | Any authenticated user |
+| GET | `/api/users` | List users with pagination (`page`, `limit`; default 100, max 1000, excludes passwords/tokens) | Any authenticated user |
 | GET | `/api/users/:userId` | Get user by ID (excludes sensitive fields) | Any authenticated user |
 | PUT | `/api/users/:userId` | Update user | 🔒 Admin only |
 | DELETE | `/api/users/:userId` | Delete user | 🔒 Admin only |
 | POST | `/api/users/profile` | Create user profile | Any authenticated user |
 | POST | `/api/users/invite` | Invite user | 🔒 Admin only |
-| POST | `/api/users/import` | Import users (max 500 per batch) | 🔒 Admin only |
+| POST | `/api/users/import` | Import users in the background — returns `202` + `jobId`, processed by the BullMQ `user-imports` queue (max 500 per batch) | 🔒 Admin only |
 | POST | `/api/users/export/all` | Export all users to Excel (file auto-expires after 24h) | 🔒 Admin only |
 | POST | `/api/users/role/:userId` | Change user role | 🔒 Admin only |
 
@@ -89,7 +90,7 @@ Interactive API documentation is available at `/api/docs` when the server is run
 
 | Method | Endpoint | Description | Access |
 |--------|----------|-------------|--------|
-| GET | `/api/notification/:userId` | Get a user's notifications | Owner only |
+| GET | `/api/notification/:userId` | Get a user's notifications (each row may carry an optional `link` used for action buttons) | Owner only |
 | GET | `/api/notification/unopened/:userId` | Get a user's unopened notifications | Owner only |
 | POST | `/api/notification` | Mark a notification as opened (body: `id`) | Owner only |
 | GET | `/api/notification/update/setup` | List notification templates | 🔒 Admin only |
@@ -124,6 +125,7 @@ Interactive API documentation is available at `/api/docs` when the server is run
 - Only `ACTIVE` users can log in or connect via socket; `INACTIVE`/`INVITED` accounts are rejected (`403`) until activated
 - Password reset tokens are validated against the stored `refreshToken` in the database; tokens are rejected on mismatch
 - **Token revocation:** on logout and password change the JWT is added to a Redis blocklist (`jwt:blk:*` via `src/helpers/tokenStore.ts`) and rejected until its natural expiry, so"logged-out" tokens become useless immediately
+- **Session extension:** `POST /api/auth/me/extend` verifies the presented bearer token is still valid, not blocklisted, and belongs to an `ACTIVE` user, then re-issues a fresh 24-hour JWT (persisted to the user row) so near-expiry sessions can continue without a full re-login
 
 ### Authorization (RBAC)
 - `requireAuth` middleware on all `/api/*` routes except login, request-link, reset-password
@@ -163,9 +165,9 @@ Interactive API documentation is available at `/api/docs` when the server is run
 - **Database Indexes:** Added indexes on frequently queried fields (cohortId, trackId, genderName, roleId, createdAt, etc.) to improve query performance
 - **Connection Pool:** Connection pool size is configurable via `CONNECTION_LIMIT` and clamped to 5–50 (default 20) to prevent pool exhaustion under burst load
 - **N+1 Query Fixes:** Optimized GroupChats, AIMatchmaking, and bulk-import controllers to use batch queries instead of sequential calls
-- **Bulk Import:** reference tables (countries, districts, sectors, states, cohorts, tracks, working sectors) are loaded **once** into in-memory maps; existing emails are pre-checked with a single query, each user is created in **one** write (self-assigned UUID + inline reset token), and rows process in bounded batches of 10 with parallel side effects
+- **Bulk Import:** the controller now only validates and enqueues — the heavy work runs in a dedicated BullMQ `user-imports` worker (concurrency 1). Inside the worker, reference tables (countries, districts, sectors, states, cohorts, tracks, working sectors) are loaded **once** into in-memory maps; existing emails are pre-checked with a single query, each user is created in **one** write (self-assigned UUID + inline reset token), and rows process in bounded batches of 10 with parallel side effects. A completion/failure notification is emitted to the requester (`requestedBy`)
 - **Rate Limiting:** API rate limiting middleware protecting endpoints (100 requests/15 min default)
-- **Background Jobs:** AI matchmaking requests are processed asynchronously via BullMQ workers; outgoing emails share a dedicated BullMQ `emails` queue (concurrency 3, 3 attempts with exponential backoff, `sendEmail` returns before SMTP)
+- **Background Jobs:** AI matchmaking requests and bulk user imports are processed asynchronously via BullMQ workers; outgoing emails share a dedicated BullMQ `emails` queue (concurrency 3, 3 attempts with exponential backoff, `sendEmail` returns before SMTP)
 - **Response Compression:** `compression` middleware enabled globally for JSON/static responses
 - **Redis Response Caching:** added a `getOrSet()` helper (`src/helpers/cache.ts`) with a 5-minute TTL; genders, cohorts, tracks, and working sectors are cached alongside the location/reference-data endpoints (countries, states, districts, sectors) and are invalidated on mutation. Falls back gracefully to the database if Redis is unreachable
 - **Private Chat Pagination:** `GET /api/chat/:id` is paginated (default 200, max 500, newest-first) with parallel counts and a slimmer `select` instead of nested `include`
@@ -178,7 +180,7 @@ Interactive API documentation is available at `/api/docs` when the server is run
 - **`src/sockets/notificationEmitter.ts`:** central emitter holding the Socket.IO instance; `setIO` captures it at startup and `getIO()` exposes it to controllers and BullMQ workers
 - **Single-writer messaging:** messages are persisted once by the REST controllers (`sendMessage`, `sendGroupMessage`) and then broadcast over sockets via `getIO()` — the client no longer double-writes through socket handlers
 - **Matchmaking lifecycle notifications:** "AI Matchmaking Started" on request creation, "AI Matchmaking Completed"/"Failed" from the BullMQ worker (both the in-job failure branches and the `worker.on("failed")` handler)
-- **Profile update cron:** the hourly `generateProfileUpdateNotifications` job now emits a `notification:new` refetch signal to affected users
+- **Profile update cron:** the hourly `generateProfileUpdateNotifications` job now stamps each notification (and the `notification:new` socket payload) with the template's `link`, so clients can render action buttons (e.g. confirm/decline the profile update)
 
 ## Email Delivery
 
@@ -195,6 +197,7 @@ Prisma migrations live in `prisma/migrations/`:
 
 - `20260723001657_init` — baseline schema, including `MatchmakingRequest` and `MatchmakingItem` tables
 - `20260731181755_init` — adds `MatchmakingItem` foreign keys to `User`/`Group`, indexes on `ActivityLog`, `State`, and `Organization`, and sets the `user.password` default to `''`
+- `20260909000000_add_notification_link` — adds a nullable `link VARCHAR(500)` column to `Notifications` for notification action buttons
 
 > **Note:** The `Organization_addedById` index rename is emitted as a RedefineIndex step. Because MySQL/MariaDB cannot `DROP INDEX` an index that backs a foreign key (error 1091), the migration drops the foreign key, creates the new index, then re-adds the foreign key constraint.
 
@@ -271,7 +274,7 @@ npm start
 
 ## Redis
 
-Redis powers four features: **BullMQ** background jobs (AI matchmaking + the outgoing-email queue), **JWT token revocation** (`src/helpers/tokenStore.ts`), and **response caching** for reference data (`src/helpers/cache.ts`, 5-minute TTL). The app falls back gracefully if Redis is unreachable — email sends become synchronous, the token blocklist is skipped (stale tokens may survive until JWT expiry), caching re-reads the DB, and queued jobs are disabled — so the server still boots without it, but caching, revocation, and queue throughput are degraded.
+Redis powers the following features: **BullMQ** background jobs (AI matchmaking, bulk user imports, and the outgoing-email queue), **JWT token revocation** (`src/helpers/tokenStore.ts`), and **response caching** for reference data (`src/helpers/cache.ts`, 5-minute TTL). The app falls back gracefully if Redis is unreachable — email sends become synchronous, the token blocklist is skipped (stale tokens may survive until JWT expiry), caching re-reads the DB, and queued jobs are disabled — so the server still boots without it, but caching, revocation, and queue throughput are degraded.
 
 Quick setup on Ubuntu/Debian:
 

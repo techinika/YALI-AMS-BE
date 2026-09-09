@@ -170,6 +170,7 @@ model Notifications {
   id         String   @id @unique @default(uuid())
   message    String   @db.VarChar(1000)
   title      String
+  link       String?  @db.VarChar(500)
   receiver   User?    @relation(references: [id], fields: [receiverId])
   receiverId String?
   opened     Boolean

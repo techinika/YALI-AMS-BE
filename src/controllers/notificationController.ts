@@ -48,6 +48,7 @@ export async function generateProfileUpdateNotifications() {
     const notificationsData = users.map((user) => ({
       title: "UPDATE: You need to update your profile",
       message: setup.message.replace(/\[name\]/g, user.firstName),
+      link: setup.link || null,
       receiverId: user.id,
       opened: false,
       createdAt: new Date(),
@@ -62,6 +63,7 @@ export async function generateProfileUpdateNotifications() {
       emitToUser(user.id, "notification:new", {
         title: "UPDATE: You need to update your profile",
         message: setup.message.replace(/\[name\]/g, user.firstName),
+        link: setup.link || null,
         receiverId: user.id,
         createdAt: new Date(),
       });

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { generateToken, generateResetToken, hashPassword, verifyToken } from "../helpers/auth";
-import { revokeToken } from "../helpers/tokenStore";
+import { revokeToken, isTokenRevoked } from "../helpers/tokenStore";
 import sendEmail from "../helpers/sendMail";
 import { userStatusTypes } from "../Types/users";
 import prisma from "../helpers/prismaClient";
@@ -44,6 +44,7 @@ interface AuthController {
   requestLink(req: Request, res: Response): Promise<Response>;
   resetPassword(req: Request, res: Response): Promise<Response>;
   changePassword(req: Request, res: Response): Promise<Response>;
+  extendSession(req: Request, res: Response): Promise<Response>;
 }
 
 const AuthController: AuthController = {
@@ -104,6 +105,68 @@ const AuthController: AuthController = {
       } else {
         return res.status(500).json({ status: 500, message: "Login failed" });
       }
+    } catch (error) {
+      console.log(error);
+      return res.status(500).json({ error: "Internal Server Error" });
+    }
+  },
+
+  extendSession: async (req, res) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    const presentedToken = authHeader.split(" ")[1];
+
+    try {
+      let decoded: { id: string };
+      try {
+        decoded = verifyToken(presentedToken) as { id: string };
+      } catch {
+        return res
+          .status(401)
+          .json({ message: "Session expired, please log in again" });
+      }
+
+      if (await isTokenRevoked(presentedToken)) {
+        return res
+          .status(401)
+          .json({ message: "Session expired, please log in again" });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: {
+          id: decoded.id,
+          status: {
+            not: userStatusTypes?.DELETED,
+          },
+        },
+        include: {
+          role: true,
+        },
+      });
+
+      if (!user || user.status !== userStatusTypes?.ACTIVE) {
+        return res
+          .status(401)
+          .json({ message: "Session expired, please log in again" });
+      }
+
+      const token = generateToken(user);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { token },
+      });
+
+      return res.status(200).json({
+        status: 200,
+        message: "Session extended",
+        token,
+        user: excludeSensitiveFields(user),
+      });
     } catch (error) {
       console.log(error);
       return res.status(500).json({ error: "Internal Server Error" });

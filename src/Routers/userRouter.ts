@@ -11,10 +11,14 @@ import { getAllUsers, getUserById } from "../controllers/Users/getUsers";
 import { deleteUser } from "../controllers/Users/deleteUser";
 import { importUsers } from "../controllers/Users/importUsers";
 import { exportMembersController } from "../controllers/Users/exportUsers";
+import { exportMyData } from "../controllers/Users/exportMyData";
+import { deleteOwnAccount } from "../controllers/Users/deleteOwnAccount";
 import { requireAdmin } from "../middleware/auth";
 
 const router = Router();
 
+router.get("/me/data", exportMyData);
+router.delete("/me", deleteOwnAccount);
 router.get("/", getAllUsers);
 router.get("/:userId", getUserById);
 router.post("/export/all", requireAdmin, exportMembersController);
