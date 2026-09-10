@@ -114,6 +114,13 @@ Interactive API documentation is available at `/api/docs` when the server is run
 | GET | `/api/data/working-sectors` | List working sectors |
 | GET | `/api/data/cohorts` | List cohorts |
 
+### Dashboard Statistics Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/stats` | Aggregate counts (users, messages, unopened notifications, sent notifications) |
+| GET | `/api/stats/activity-trend?days=7` | Daily message counts for the last N days (default 7, max 30); returns `{ data: [{ date, count }] }` with zero-filled days so the chart never has gaps |
+
 ---
 
 ## Security
